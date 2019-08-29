@@ -13,34 +13,57 @@
 #include "libft.h"
 #include "op.h"
 
+#define MAX_CYCLE 50
 
-#define ONE_STEP 1
 
-
-#define MAX_CYCLE 64
-#define CHECK_COMMAND 0x04
-#define CHECK_ARG_BYTE 0b01010100
-#define CHECK_REG1 0x00
-#define CHECK_REG2 0x10
-#define CHECK_REG3 0x02
-
-#define BYTES_COUNT 16
+#define BYTES_COUNT 20
 char str[100] = {
 
-0x09, 0x00, 0x0a,
-0x01, 0x00, 0x00, 0x00, 0x00,
-0x01, 0x00, 0x00, 0x00, 0x00,
+0x04, 0b01010100, 0x0c, 0x0c, 0x0c,
+0x05, 0x0c, 0x0c, 0x0c, 0x0c,
+0x0c, 0x0c, 0x0c, 0x0c, 0x0c,
 0x09, 0xff, 0xf6,
 0x00, 0x00
 };
-				/*{
-				0x03,
-				0b01010100,
-				0x01, 0x00, 0x05, 0x07,
-				0x07, 0x07, 0x07, 0x07,
-				0x02,
-				0x02, 0x02};*/
 
+
+
+void	ft_write_new_champ(char *name)
+{
+	char	buf[5000];
+	int		fd;
+	int		lenght;
+	int 	reader;
+
+	fd = open("text.cor", O_RDONLY);
+	if (fd < 0 || read(fd, NULL, 0) < 0)
+		return ;
+	lenght = PROG_NAME_LENGTH + COMMENT_LENGTH + 16;
+	reader = read(fd, buf, lenght);
+	close(fd);
+
+	fd = open(name, O_RDWR | O_CREAT | O_APPEND | O_TRUNC);
+	if (fd < 0)
+		return ;
+
+	int i;
+	i = 0;
+	while (i < lenght)
+	{
+		if (i == PROG_NAME_LENGTH + 4 + 4 + 3)
+			ft_putchar_fd(BYTES_COUNT, fd);
+		else
+			ft_putchar_fd(buf[i], fd);
+		i++;
+	}
+	i = 0;
+	while (i < BYTES_COUNT)
+	{
+		ft_putchar_fd(str[i], fd);
+		i++;
+	}
+	close(fd);
+}
 
 
 
@@ -48,7 +71,7 @@ char str[100] = {
 **	сделать и организовать маски для аргументов
 */
 
-
+#define ONE_STEP 1
 
 #define ARG_MASK 0b00000011
 #define REG_MASK 0b00000001
@@ -105,6 +128,11 @@ int    opt_tab[17][10] =
 	{CMD_AFF,	2, 1, 0, 4}
 };
 
+
+
+
+
+
 #define F_REG			1
 #define F_DIR			2
 #define F_IND			4
@@ -112,6 +140,19 @@ int    opt_tab[17][10] =
 #define F_REG_IND		(F_REG + F_IND)
 #define F_DIR_IND		(F_DIR + F_IND)
 #define F_REG_DIR_IND	(F_REG + F_DIR + F_IND)
+
+#define MASKS			0
+#define SIZE_BYTE		2
+#define LEN_BYTE		3
+
+int    opt_tab2[4][10] =
+{
+	{0,			MASKS, SIZE_BYTE, LEN_BYTE},
+	{REG_CODE,	F_REG, REG_SIZE, 1, 4},
+	{DIR_CODE,	F_DIR, DIR_SIZE, 4, 4},
+	{IND_CODE,	F_IND, IND_SIZE, 2, 4}
+};
+
 
 #define ARG_COUNT	1
 #define ARG_BYTE	2
@@ -273,33 +314,29 @@ void ft_print_memory(t_all *all)
 	ft_putchar('\n');
 }
 
-void ft_read_memory(char *memory)
+
+
+int		ft_read_memory(char *name, char *memory)
 {
-/*	char str[100] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x0b, 0x68, 0x10, 0x00, 0x07, 0x00, 0x01,
-					0x01, 0x00, 0x00, 0x00, 0x00,
-					0x02, 0x90, 0x00, 0x00, 0x00, 0x00, 0x02,
-					0x00, 0x00};
-	ft_memcpy((void *)memory, (void *)str, 27);
-*/
-/*
-//jump
-	char str[100] = {0x09, 0xFF, 0xEB};
-	ft_memcpy((void *)memory, (void *)str, 4);
-*/
-/*
-//fork
-	char str[100] = {0x0c, 0x00, 0x14, 0x00};
-	ft_memcpy((void *)memory, (void *)str, 4);
-*/
+	char	buf[5000];
+	int		fd;
+	int		lenght;
+	int 	reader;
+
+	fd = open(name, O_RDONLY);
+	if (fd < 0 || read(fd, NULL, 0) < 0)
+		return (FALSE);
+	lenght = PROG_NAME_LENGTH + COMMENT_LENGTH + 16;
+	reader = read(fd, buf, lenght);
 
 
-//ld
-	//char str[100] = {CHECK_COMMAND, CHECK_ARG_BYTE, CHECK_REG1, CHECK_REG2, CHECK_REG3};
-	ft_memcpy((void *)memory, (void *)str, BYTES_COUNT);
 
-
+	reader = read(fd, buf, lenght);
+	close(fd);
+	ft_memcpy((void *)memory, (void *)buf, reader);
+	return (TRUE);
 }
+
 
 
 /*
@@ -334,9 +371,14 @@ int		ft_value_from_memory(char *memory, int pos, int size)
 		byte[i] = *(memory + ft_get_pos_of_memory(pos + size - i));
 		i++;
 	}
+	if (size == IND_SIZE && (value & 0x8000))
+		value = value + 0xFFFF0000;
 	return (value);
 }
 
+/*
+**	вписываем число на указанное количество байт в память
+*/
 
 void	ft_value_in_memory(char *memory, int pos, int value, int size)
 {
@@ -385,7 +427,6 @@ void	ft_copy_fork(t_car *car, int new_pos)
 	else if (car->action == CMD_LFORK)
 		new_pos = car->pos + new_pos - 1;
 	last_car->pos = ft_get_pos_of_memory(new_pos);
-	last_car->pos_shift = 0;
 	//last_car->wait = 0;
 	last_car->action = READY_TO_ACTION;
 }
@@ -408,55 +449,94 @@ void	ft_live(t_car *car, int value)
 
 
 
-int		ft_args_type(int bits_of_arg, int arg_number, int command)
+int		ft_is_valid_args_type(t_car *car, int args_byte, int arg_number)
 {
 	int type_of_arg;
 	int cmd_arg_mask;
 	int bits_shift_value;
 
 	bits_shift_value = 2 * (3 - arg_number);
-	bits_of_arg = (bits_of_arg >> bits_shift_value) & ARG_MASK;
-	type_of_arg = 0;
-	if (bits_of_arg == REG_MASK)
-		type_of_arg = F_REG;
-	else if (bits_of_arg == DIR_MASK)
-		type_of_arg = F_DIR;
-	else if (bits_of_arg == IND_MASK)
-		type_of_arg = F_IND;
-	cmd_arg_mask = arg_tab[command][ARG_1 + arg_number];
+	args_byte = (args_byte >> bits_shift_value) & ARG_MASK;
+	if (args_byte == REG_CODE)
+		car->pos_shift += 1;
+	else if (args_byte == DIR_CODE)
+		car->pos_shift += opt_tab[car->action][DIR_SIZE];
+	else if (args_byte == IND_CODE)
+		car->pos_shift += 2;
+
+	type_of_arg = opt_tab2[args_byte][1];
+
+	cmd_arg_mask = arg_tab[car->action][ARG_1 + arg_number];
 	if (type_of_arg & cmd_arg_mask)
 		return (type_of_arg);
 	return (0);
 }
-
+/*
 int		ft_args_byte_is_valid(t_car *car)
 {
 	int args_byte;
 	int args_count;
-	int arg_type_flag;
-	int args_flags;
+	int arg_type;
+	int valid;
 	int i;
 
 	args_byte = ft_value_from_memory(car->all->memory, car->pos, 1);
 	args_count = arg_tab[car->action][ARG_COUNT];
 	i = 0;
-	args_flags = 0;
+	valid = TRUE;
 	while (i < 4)
 	{
-		args_flags = args_flags << 8;
+		car->arg_byte = car->arg_byte << 8;
 		if (i < args_count)
 		{
-			arg_type_flag = ft_args_type(args_byte, i, car->action);
-			if (arg_type_flag == 0)
-				return (0);
-			args_flags = args_flags + arg_type_flag;
+			arg_type = ft_is_valid_args_type(args_byte, i, car->action);
+			if (arg_type == 0)
+				valid = FALSE;
+			car->arg_byte = car->arg_byte + arg_type;
 		}
 		i++;
 	}
-	return (args_flags);
+	return (valid);
+}
+*/
+
+
+int		ft_args_byte_is_valid(t_car *car)
+{
+	int args_byte;
+	int args_count;
+	int arg_type;
+	int valid;
+	int i;
+
+	args_byte = ft_value_from_memory(car->all->memory, car->pos, 1);
+	args_count = arg_tab[car->action][ARG_COUNT];
+	i = 0;
+	valid = TRUE;
+	while (i < 4)
+	{
+		car->arg_byte = car->arg_byte << 8;
+		if (i < args_count)
+		{
+			arg_type = ft_is_valid_args_type(car, args_byte, i);
+			if (arg_type == 0)
+				valid = FALSE;
+			car->arg_byte = car->arg_byte | arg_type;
+		}
+		i++;
+	}
+	return (valid);
 }
 
 
+
+//1		x^0 * y^0 +
+//3		x^1 * y^0 + x^1 * y^1 + x^0 * y^1 +
+//5		x^2 * y^0 + x^2 * y^1 + x^2 * y^2 + x^1 * y^2 + x^0 * y^2 +
+//7		x^3 * y^0 + x^3 * y^1 + x^3 * y^2 + x^3 * y^3 + x^2 * y^3 + x^1 * y^3 + x^0 * y^3 +
+//9		x^4 * y^0 + x^4 * y^1 + x^4 * y^2 + x^4 * y^3 + x^4 * y^4 + x^3 * y^4 + x^2 * y^4 + x^1 * y^4 + x^0 * y^4 +
+//11	x^5 * y^0 + x^5 * y^1 + x^5 * y^2 + x^5 * y^3 + x^5 * y^4 + x^5 * y^5 + x^4 * y^5 + x^3 * y^5 + x^2 * y^5 + x^1 * y^5 + x^0 * y^5 +
+//13	x^6 * y^0 + x^6 * y^1 + x^6 * y^2 + x^6 * y^3 + x^6 * y^4 + x^6 * y^5 + x^6 * y^6 + x^5 * y^6 + x^4 * y^6 + x^3 * y^6 + x^2 * y^6 + x^1 * y^6 + x^0 * y^6
 
 
 int		ft_valid_reg(t_car *car)
@@ -484,12 +564,11 @@ int		ft_valid_reg(t_car *car)
 			shift += opt_tab[car->action][SIZE_DIR];
 		byte--;
 	}
-	car->pos_shift = shift;
 	return (valid);
 }
 
 
-
+/*
 int		ft_valid_command(t_car *car)
 {
 	int valid;
@@ -498,6 +577,7 @@ int		ft_valid_command(t_car *car)
 	car->arg_byte = 0;
 	if ((arg_tab[car->action][ARG_BYTE]))
 	{
+		car->pos_shift = 1;
 		car->arg_byte = ft_args_byte_is_valid(car);
 		if (car->arg_byte && ft_valid_reg(car))
 			valid = TRUE;
@@ -509,6 +589,26 @@ int		ft_valid_command(t_car *car)
 	}
 	return (valid);
 }
+*/
+
+int		ft_valid_command(t_car *car)
+{
+	int valid;
+
+	valid = TRUE;
+	if ((arg_tab[car->action][ARG_BYTE]))
+	{
+		car->pos_shift++;
+		if (!(ft_args_byte_is_valid(car) && ft_valid_reg(car)))
+			valid = FALSE;
+		//ft_putnbr_end(car->pos_shift);
+	}
+	else
+		car->pos_shift = opt_tab[car->action][SIZE_DIR];
+	return (valid);
+}
+
+
 
 
 int		ft_arg_by_number(t_car *car, int number, int *value)
@@ -562,36 +662,6 @@ void	ft_ptr_on_arg_by_number(t_car *car, int number, int **value)
 	}
 }
 
-/*
-void	ft_make_and_or_xor_summ_sub(t_car *car)
-{
-	int *ptr[3];
-	int value[3];
-
-	ft_bzero((void *)value, 3 * 4);
-	ptr[0] = &(value[0]);
-	ptr[1] = &(value[1]);
-	ptr[2] = &(value[2]);
-	ft_ptr_on_arg_by_number(car, 0, &(ptr[0]));
-	ft_ptr_on_arg_by_number(car, 1, &(ptr[1]));
-	ft_ptr_on_arg_by_number(car, 2, &(ptr[2]));
-	if (car->action == CMD_AND)
-		*(ptr[2]) = *(ptr[0]) & *(ptr[1]);
-	else if (car->action == CMD_OR)
-		*(ptr[2]) = *(ptr[0]) | *(ptr[1]);
-	else if (car->action == CMD_XOR)
-		*(ptr[2]) = *(ptr[0]) ^ *(ptr[1]);
-	else if (car->action == CMD_ADD)
-		*(ptr[2]) = *(ptr[0]) + *(ptr[1]);
-	else if (car->action == CMD_SUB)
-		*(ptr[2]) = *(ptr[0]) - *(ptr[1]);
-	if (*(ptr[2]))
-		car->carry = 0;
-	else
-		car->carry = 1;
-}
-*/
-
 
 void	ft_modify_carry(t_car *car, int value)
 {
@@ -604,8 +674,8 @@ void	ft_modify_carry(t_car *car, int value)
 		else
 			car->carry = 1;
 	}
-	else if (car->action == CMD_ZJMP)
-		car->carry = 0;
+	//else if (car->action == CMD_ZJMP)
+	//	car->carry = 0;
 
 /*	car->carry += opt_tab[car->action][CARRY_ONE];
 	if (car->carry > 1)
@@ -635,7 +705,7 @@ void	ft_arifm_operations(t_car *car, int **ptr)
 	else if (car->action == CMD_LLDI)
 		*(ptr[2]) = car->pos + *(ptr[0]) + *(ptr[1]);
 	else if (car->action == CMD_ZJMP && car->carry)
-		car->pos_shift = *(ptr[0]) % IDX_MOD;
+		car->pos_shift = *(ptr[0]) % IDX_MOD - ONE_STEP;
 	else if (car->action == CMD_AFF)
 		ft_putchar((char)*(ptr[0]));
 	else if (car->action == CMD_FORK || car->action == CMD_LFORK)
@@ -660,7 +730,8 @@ void	ft_st_sti_operations(t_car *car, int **ptr)
 	}
 	else if (car->action == CMD_STI)
 	{
-		adress = car->pos + (*(ptr[2]) + *(ptr[3])) % IDX_MOD;
+		adress = car->pos + (*(ptr[1]) + *(ptr[2])) % IDX_MOD;
+		ft_putnbr_end(adress);
 		ft_value_in_memory(car->all->memory, adress, *(ptr[0]), DIR_SIZE);
 	}
 }
@@ -706,6 +777,7 @@ void	ft_wait_or_do_command(t_car *car)
 	else
 	{
 		//активация команды
+		car->pos_shift = 0;
 		if (ft_valid_command(car))
 			ft_use_command(car);
 		car->pos = ft_get_pos_of_memory(car->pos + ONE_STEP + car->pos_shift);
@@ -720,9 +792,8 @@ void	ft_choose_action(t_car *car)
 	unsigned char command;
 
 	command = *(car->all->memory + car->pos);
-	if (command && command < CMD_COUNT)
+	if (command > 0 && command < CMD_COUNT)
 	{
-		//car->wait = ft_need_waiting_for_action(command);
 		car->wait = opt_tab[command][CMD_PRICE] - 1;
 		car->action = command;
 	}
@@ -784,7 +855,6 @@ void	ft_cycle(t_all *all)
 		if (car->action == MOVE_NEXT)
 		{
 			car->pos = ft_get_pos_of_memory(car->pos + ONE_STEP);
-			car->pos_shift = 0;
 			car->action = READY_TO_ACTION;
 		}
 		else
@@ -802,7 +872,7 @@ void	ft_cycle(t_all *all)
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
 	t_all *all;
 	all = ft_create_all(1);
@@ -814,9 +884,15 @@ int main()
 	all->cars->pos = 0;
 	//all->cars->next->pos = 3;
 
+	if (argc == 1)
+		return (0);
+	if (ft_read_memory(argv[1], all->memory))
+		ft_print_memory(all);
+	else
+		ft_putstr("не прочел память\n");
 
-	ft_read_memory(all->memory);
-	ft_print_memory(all);
+
+	ft_write_new_champ("text2.cor");
 
 	while (all->cars)
 	{
