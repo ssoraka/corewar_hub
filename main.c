@@ -13,14 +13,14 @@
 #include "libft.h"
 #include "op.h"
 
-#define MAX_CYCLE 50
+#define MAX_CYCLE 199
 
 
 #define BYTES_COUNT 20
 char str[100] = {
 
-0x04, 0b01010100, 0x0c, 0x0c, 0x0c,
-0x05, 0x0c, 0x0c, 0x0c, 0x0c,
+0x04, 0b00000010, 0x0c, 0x0c, 0x0c,
+0x0c, 0x0c, 0x0c, 0x0c, 0x0c,
 0x0c, 0x0c, 0x0c, 0x0c, 0x0c,
 0x09, 0xff, 0xf6,
 0x00, 0x00
@@ -74,9 +74,9 @@ void	ft_write_new_champ(char *name)
 #define ONE_STEP 1
 
 #define ARG_MASK 0b00000011
-#define REG_MASK 0b00000001
-#define DIR_MASK 0b00000010
-#define IND_MASK 0b00000011
+//#define REG_MASK 0b00000001
+//#define DIR_MASK 0b00000010
+//#define IND_MASK 0b00000011
 
 typedef enum	s_com
 {
@@ -112,7 +112,7 @@ int    opt_tab[17][10] =
 	{0,			CMD_PRICE, CARRY_ONE, CARRY_NULL, SIZE_DIR},
 	{CMD_LIVE,	10, 0, 0, 4},
 	{CMD_LD,	5, 1, 0, 4},
-	{CMD_ST,	5, 1, 0, 4},
+	{CMD_ST,	5, 0, 0, 4},
 	{CMD_ADD,	10, 1, 0, 4},
 	{CMD_SUB,	10, 1, 0, 4},
 	{CMD_AND,	6, 1, 0, 4},
@@ -120,12 +120,12 @@ int    opt_tab[17][10] =
 	{CMD_XOR,	6, 1, 0, 4},
 	{CMD_ZJMP,	20, 0, 1, 2},
 	{CMD_LDI,	25, 1, 1, 2},
-	{CMD_STI,	25, 1, 1, 2},
+	{CMD_STI,	25, 0, 1, 2},
 	{CMD_FORK,	800, 0, 1, 2},
 	{CMD_LLD,	10, 1, 0, 4},
 	{CMD_LLDI,	50, 1, 1, 2},
 	{CMD_LFORK,	1000, 0, 1, 2},
-	{CMD_AFF,	2, 1, 0, 4}
+	{CMD_AFF,	2, 0, 0, 4}
 };
 
 
@@ -133,13 +133,13 @@ int    opt_tab[17][10] =
 
 
 
-#define F_REG			1
-#define F_DIR			2
-#define F_IND			4
-#define F_REG_DIR		(F_REG + F_DIR)
-#define F_REG_IND		(F_REG + F_IND)
-#define F_DIR_IND		(F_DIR + F_IND)
-#define F_REG_DIR_IND	(F_REG + F_DIR + F_IND)
+#define T_REG			1
+#define T_DIR			2
+#define T_IND			4
+#define T_REG_DIR		(T_REG + T_DIR)
+#define T_REG_IND		(T_REG + T_IND)
+#define T_DIR_IND		(T_DIR + T_IND)
+#define T_REG_DIR_IND	(T_REG + T_DIR + T_IND)
 
 #define MASKS			0
 #define SIZE_BYTE		2
@@ -148,9 +148,9 @@ int    opt_tab[17][10] =
 int    opt_tab2[4][10] =
 {
 	{0,			MASKS, SIZE_BYTE, LEN_BYTE},
-	{REG_CODE,	F_REG, REG_SIZE, 1, 4},
-	{DIR_CODE,	F_DIR, DIR_SIZE, 4, 4},
-	{IND_CODE,	F_IND, IND_SIZE, 2, 4}
+	{REG_CODE,	T_REG, REG_SIZE, 1, 4},
+	{DIR_CODE,	T_DIR, DIR_SIZE, 4, 4},
+	{IND_CODE,	T_IND, IND_SIZE, 2, 4}
 };
 
 
@@ -165,21 +165,21 @@ int    arg_tab[17][10] =
 {
 	{0,		ARG_COUNT, ARG_BYTE, ARG_1,ARG_2,ARG_3},
 	{CMD_LIVE,	1,	0,	0,				0,				0},
-	{CMD_LD,	2,	1,	F_DIR_IND,		F_REG,			0},
-	{CMD_ST,	2,	1,	F_REG,			F_REG_IND,		0},
-	{CMD_ADD,	3,	1,	F_REG,			F_REG,			F_REG},
-	{CMD_SUB,	3,	1,	F_REG,			F_REG,			F_REG},
-	{CMD_AND,	3,	1,	F_REG_DIR_IND,	F_REG_DIR_IND,	F_REG},
-	{CMD_OR,	3,	1,	F_REG_DIR_IND,	F_REG_DIR_IND,	F_REG},
-	{CMD_XOR,	3,	1,	F_REG_DIR_IND,	F_REG_DIR_IND,	F_REG},
-	{CMD_ZJMP,	1,	0,	F_DIR,			0,				0},
-	{CMD_LDI,	3,	1,	F_REG_DIR_IND,	F_REG_DIR,		F_REG},
-	{CMD_STI,	3,	1,	F_REG,			F_REG_DIR_IND,	F_REG_DIR},
-	{CMD_FORK,	1,	0,	F_DIR,			0,				0},
-	{CMD_LLD,	2,	1,	F_DIR_IND,		F_REG,			0},
-	{CMD_LLDI,	3,	1,	F_REG_DIR_IND,	F_REG_DIR,		F_REG},
-	{CMD_LFORK,	1,	0,	F_DIR,			0,				0},
-	{CMD_AFF,	1,	1,	F_REG,			0,				0},
+	{CMD_LD,	2,	1,	T_DIR_IND,		T_REG,			0},
+	{CMD_ST,	2,	1,	T_REG,			T_REG_IND,		0},
+	{CMD_ADD,	3,	1,	T_REG,			T_REG,			T_REG},
+	{CMD_SUB,	3,	1,	T_REG,			T_REG,			T_REG},
+	{CMD_AND,	3,	1,	T_REG_DIR_IND,	T_REG_DIR_IND,	T_REG},
+	{CMD_OR,	3,	1,	T_REG_DIR_IND,	T_REG_DIR_IND,	T_REG},
+	{CMD_XOR,	3,	1,	T_REG_DIR_IND,	T_REG_DIR_IND,	T_REG},
+	{CMD_ZJMP,	1,	0,	T_DIR,			0,				0},
+	{CMD_LDI,	3,	1,	T_REG_DIR_IND,	T_REG_DIR,		T_REG},
+	{CMD_STI,	3,	1,	T_REG,			T_REG_DIR_IND,	T_REG_DIR},
+	{CMD_FORK,	1,	0,	T_DIR,			0,				0},
+	{CMD_LLD,	2,	1,	T_DIR_IND,		T_REG,			0},
+	{CMD_LLDI,	3,	1,	T_REG_DIR_IND,	T_REG_DIR,		T_REG},
+	{CMD_LFORK,	1,	0,	T_DIR,			0,				0},
+	{CMD_AFF,	1,	1,	T_REG,			0,				0},
 };
 
 
@@ -207,6 +207,7 @@ typedef struct		s_car
 	int				wait;
 	int				carry;
 	int				cycle_of_calling_life;
+	int				*arg[3];
 	struct s_all	*all;
 	struct s_car	*next;
 }					t_car;
@@ -427,7 +428,6 @@ void	ft_copy_fork(t_car *car, int new_pos)
 	else if (car->action == CMD_LFORK)
 		new_pos = car->pos + new_pos - 1;
 	last_car->pos = ft_get_pos_of_memory(new_pos);
-	//last_car->wait = 0;
 	last_car->action = READY_TO_ACTION;
 }
 
@@ -448,7 +448,7 @@ void	ft_live(t_car *car, int value)
 }
 
 
-
+/*
 int		ft_is_valid_args_type(t_car *car, int args_byte, int arg_number)
 {
 	int type_of_arg;
@@ -471,6 +471,7 @@ int		ft_is_valid_args_type(t_car *car, int args_byte, int arg_number)
 		return (type_of_arg);
 	return (0);
 }
+*/
 /*
 int		ft_args_byte_is_valid(t_car *car)
 {
@@ -500,7 +501,7 @@ int		ft_args_byte_is_valid(t_car *car)
 }
 */
 
-
+/*
 int		ft_args_byte_is_valid(t_car *car)
 {
 	int args_byte;
@@ -527,7 +528,7 @@ int		ft_args_byte_is_valid(t_car *car)
 	}
 	return (valid);
 }
-
+*/
 
 
 //1		x^0 * y^0 +
@@ -538,7 +539,7 @@ int		ft_args_byte_is_valid(t_car *car)
 //11	x^5 * y^0 + x^5 * y^1 + x^5 * y^2 + x^5 * y^3 + x^5 * y^4 + x^5 * y^5 + x^4 * y^5 + x^3 * y^5 + x^2 * y^5 + x^1 * y^5 + x^0 * y^5 +
 //13	x^6 * y^0 + x^6 * y^1 + x^6 * y^2 + x^6 * y^3 + x^6 * y^4 + x^6 * y^5 + x^6 * y^6 + x^5 * y^6 + x^4 * y^6 + x^3 * y^6 + x^2 * y^6 + x^1 * y^6 + x^0 * y^6
 
-
+/*
 int		ft_valid_reg(t_car *car)
 {
 	int valid;
@@ -551,14 +552,14 @@ int		ft_valid_reg(t_car *car)
 	byte = (char *)(&(car->arg_byte)) + 3;
 	while (*byte && valid)
 	{
-		if (*byte == F_REG)
+		if (*byte == T_REG)
 		{
 			reg = ft_value_from_memory(car->all->memory, car->pos + shift, 1);
 			if (reg > REG_NUMBER || reg <= 0)
 				valid = FALSE;
 			shift++;
 		}
-		else if (*byte == F_IND)
+		else if (*byte == T_IND)
 			shift += IND_SIZE;
 		else
 			shift += opt_tab[car->action][SIZE_DIR];
@@ -566,7 +567,7 @@ int		ft_valid_reg(t_car *car)
 	}
 	return (valid);
 }
-
+*/
 
 /*
 int		ft_valid_command(t_car *car)
@@ -590,7 +591,7 @@ int		ft_valid_command(t_car *car)
 	return (valid);
 }
 */
-
+/*
 int		ft_valid_command(t_car *car)
 {
 	int valid;
@@ -607,10 +608,132 @@ int		ft_valid_command(t_car *car)
 		car->pos_shift = opt_tab[car->action][SIZE_DIR];
 	return (valid);
 }
+*/
 
 
 
 
+
+int		ft_size_of_arg_by_type(int command, int arg_bit)
+{
+	int length;
+
+	length = 0;
+	if (arg_bit == REG_CODE)
+		length = 1;
+	else if (arg_bit == DIR_CODE)
+		length = opt_tab[command][DIR_SIZE];
+	else if (arg_bit == IND_CODE)
+		length = 2;
+	return (length);
+}
+
+
+int		ft_arg_is_valid(t_car *car, int arg_bits, int arg_number)
+{
+	int valid;
+	int reg;
+	int arg_type;
+	int cmd_arg_mask;
+
+	valid = TRUE;
+	reg = 0;
+	if (arg_bits == REG_CODE)
+	{
+		reg = ft_value_from_memory(car->all->memory, car->pos + car->pos_shift, 1);
+		if (reg > REG_NUMBER || reg <= 0)
+			valid = FALSE;
+	}
+	arg_type = opt_tab2[arg_bits][1];
+	cmd_arg_mask = arg_tab[car->action][ARG_1 + arg_number];
+	if (arg_type & cmd_arg_mask)
+		valid = FALSE;
+	return (valid);
+}
+
+
+void	ft_return_arg(t_car *car, int arg_bits, int **arg)
+{
+	int address;
+	int size;
+
+	//arg = ft_arg_by_number(car, number, *value);
+	address = car->pos + car->pos_shift;
+	size = ft_size_of_arg_by_type(car->action, arg_bits);
+	**arg = ft_value_from_memory(car->all->memory, address, size);
+//	ft_putnbr_end(arg);
+//	ft_putnbr_end(**value);
+	if (arg_bits == REG_CODE)
+		*arg = &(car->reg[**arg]);
+	else if (arg_bits == IND_CODE)
+	{
+		address = car->pos + (**arg) % IDX_MOD;
+		if (car->action != CMD_LLD)
+			address = car->pos + (**arg);
+		if (car->action != CMD_ST)// || car->action != CMD_STI)
+			**arg = ft_value_from_memory(car->all->memory, address - 1, DIR_SIZE);
+		else
+			**arg = address;
+	}
+}
+
+
+
+
+int		ft_parsing_of_args(t_car *car)
+{
+	int args_byte;
+	int arg_bits;
+	int valid;
+	int i;
+
+	valid = SUCCESS;
+	args_byte = ft_value_from_memory(car->all->memory, car->pos, 1);
+	i = 0;
+	while (i < 4)
+	{
+		arg_bits = (args_byte >> (2 * (3 - i))) & ARG_MASK;
+		car->arg_byte = car->arg_byte << 8;
+		if (i < arg_tab[car->action][ARG_COUNT])
+		{
+			if (ft_arg_is_valid(car, arg_bits, i) == FAIL)
+				valid = FAIL;
+			else
+				ft_return_arg(car, arg_bits, &(car->arg[i]));
+			car->pos_shift += ft_size_of_arg_by_type(car->action, arg_bits);
+			car->arg_byte = car->arg_byte | opt_tab2[arg_bits][1];
+		}
+		i++;
+	}
+	return (valid);
+}
+
+
+
+int		ft_valid_command(t_car *car)
+{
+	int valid;
+
+
+	valid = TRUE;
+	if ((arg_tab[car->action][ARG_BYTE]))
+	{
+		car->pos_shift = ONE_STEP;
+		if (ft_parsing_of_args(car) == FAIL)
+			valid = FALSE;
+		//ft_putnbr_end(car->pos_shift);
+	}
+	else
+	{
+		ft_return_arg(car, DIR_CODE, &(car->arg[0]));
+		car->pos_shift = opt_tab[car->action][SIZE_DIR];
+	}
+	return (valid);
+}
+
+
+
+/*
 int		ft_arg_by_number(t_car *car, int number, int *value)
 {
 	int shift;
@@ -620,11 +743,12 @@ int		ft_arg_by_number(t_car *car, int number, int *value)
 	shift = opt_tab[car->action][ARG_BYTE];
 	byte = (char *)(&(car->arg_byte)) + 3;
 	size = opt_tab[car->action][SIZE_DIR];
+	//ft_putnbr_end(ft_value_from_memory(car->all->memory, 0 + 1, size));
 	while (*byte)
 	{
-		if (*byte == F_REG)
+		if (*byte == T_REG)
 			size = 1;
-		else if (*byte == F_DIR)
+		else if (*byte == T_DIR)
 			size = opt_tab[car->action][SIZE_DIR];
 		else
 			size = IND_SIZE;
@@ -637,8 +761,8 @@ int		ft_arg_by_number(t_car *car, int number, int *value)
 	*value = ft_value_from_memory(car->all->memory, car->pos + shift, size);
 	return ((int)(*byte));
 }
-
-
+*/
+/*
 void	ft_ptr_on_arg_by_number(t_car *car, int number, int **value)
 {
 	int arg;
@@ -650,9 +774,9 @@ void	ft_ptr_on_arg_by_number(t_car *car, int number, int **value)
 	arg = ft_arg_by_number(car, number, *value);
 //	ft_putnbr_end(arg);
 //	ft_putnbr_end(**value);
-	if (arg == F_REG)
+	if (arg == T_REG)
 		*value = &(car->reg[**value]);
-	else if (arg == F_IND)
+	else if (arg == T_IND)
 	{
 		address = car->pos + (**value) % IDX_MOD;
 		if (car->action != CMD_ST)// || car->action != CMD_STI)
@@ -661,19 +785,25 @@ void	ft_ptr_on_arg_by_number(t_car *car, int number, int **value)
 			**value = address;
 	}
 }
+*/
 
-
-void	ft_modify_carry(t_car *car, int value)
+void	ft_modify_carry(t_car *car, int **arg)
 {
+	int value;
 
+	value = 0;
+	if (!opt_tab[car->action][CARRY_ONE])
+		return ;
 	if (car->action == CMD_AND || car->action == CMD_OR ||
-	car->action == CMD_XOR || car->action == CMD_ADD || car->action == CMD_SUB)
-	{
-		if (value)
-			car->carry = 0;
-		else
-			car->carry = 1;
-	}
+	car->action == CMD_XOR || car->action == CMD_ADD ||
+	car->action == CMD_SUB || car->action == CMD_LLDI)
+		value = *(arg[2]);
+	if (car->action == CMD_LD || car->action == CMD_LLD)
+		value = *(arg[1]);
+	if (value)
+		car->carry = 0;
+	else
+		car->carry = 1;
 	//else if (car->action == CMD_ZJMP)
 	//	car->carry = 0;
 
@@ -686,59 +816,62 @@ void	ft_modify_carry(t_car *car, int value)
 }
 
 
-void	ft_arifm_operations(t_car *car, int **ptr)
+void	ft_arifm_operations(t_car *car, int **arg)
 {
 	if (car->action == CMD_AND)
-		*(ptr[2]) = *(ptr[0]) & *(ptr[1]);
+		*(arg[2]) = *(arg[0]) & *(arg[1]);
 	else if (car->action == CMD_OR)
-		*(ptr[2]) = *(ptr[0]) | *(ptr[1]);
+		*(arg[2]) = *(arg[0]) | *(arg[1]);
 	else if (car->action == CMD_XOR)
-		*(ptr[2]) = *(ptr[0]) ^ *(ptr[1]);
+		*(arg[2]) = *(arg[0]) ^ *(arg[1]);
 	else if (car->action == CMD_ADD)
-		*(ptr[2]) = *(ptr[0]) + *(ptr[1]);
+		*(arg[2]) = *(arg[0]) + *(arg[1]);
 	else if (car->action == CMD_SUB)
-		*(ptr[2]) = *(ptr[0]) - *(ptr[1]);
-	else if (car->action == CMD_LDI)
-		*(ptr[2]) = car->pos + (*(ptr[0]) + *(ptr[1])) % IDX_MOD;
-	else if (car->action == CMD_LLD)
-		*(ptr[1]) = car->pos + *(ptr[0]);
-	else if (car->action == CMD_LLDI)
-		*(ptr[2]) = car->pos + *(ptr[0]) + *(ptr[1]);
+		*(arg[2]) = *(arg[0]) - *(arg[1]);
+	else if (car->action == CMD_LD || car->action == CMD_LLD)
+		*(arg[1]) = *(arg[0]);
 	else if (car->action == CMD_ZJMP && car->carry)
-		car->pos_shift = *(ptr[0]) % IDX_MOD - ONE_STEP;
-	else if (car->action == CMD_AFF)
-		ft_putchar((char)*(ptr[0]));
+		car->pos_shift = *(arg[0]) % IDX_MOD - ONE_STEP;
 	else if (car->action == CMD_FORK || car->action == CMD_LFORK)
-		ft_copy_fork(car, *(ptr[0]));
+		ft_copy_fork(car, *(arg[0]));
 	else if (car->action == CMD_LIVE)
-		ft_live(car, *(ptr[0]));
-	ft_modify_carry(car, *(ptr[2]));
+		ft_live(car, *(arg[0]));
+	else if (car->action == CMD_AFF)
+		ft_putchar((char)*(arg[0]));
+	ft_modify_carry(car, arg);
 }
 
 
-void	ft_st_sti_operations(t_car *car, int **ptr)
+void	ft_st_sti_lldi_ldi_cmd(t_car *car, int **arg)
 {
 	int adress;
 
 	adress = 0;
 	if (car->action == CMD_ST)
 	{
-		if (ptr[1] >= car->reg && ptr[1] <= car->reg + REG_NUMBER)
-			*(ptr[1]) = *(ptr[0]);
+		if (arg[1] >= car->reg && arg[1] <= car->reg + REG_NUMBER)
+			*(arg[1]) = *(arg[0]);
 		else
-			ft_value_in_memory(car->all->memory, *(ptr[1]), *(ptr[0]), DIR_SIZE);
+			ft_value_in_memory(car->all->memory, *(arg[1]), *(arg[0]), DIR_SIZE);
 	}
 	else if (car->action == CMD_STI)
 	{
-		adress = car->pos + (*(ptr[1]) + *(ptr[2])) % IDX_MOD;
-		ft_putnbr_end(adress);
-		ft_value_in_memory(car->all->memory, adress, *(ptr[0]), DIR_SIZE);
+		adress = car->pos + (*(arg[1]) + *(arg[2])) % IDX_MOD;
+		ft_value_in_memory(car->all->memory, adress, *(arg[0]), DIR_SIZE);
+	}
+	else if (car->action == CMD_LLDI || car->action == CMD_LDI)
+	{
+		if (car->action == CMD_LLDI)
+			adress = car->pos + *(arg[0]) + *(arg[1]);
+		else
+			adress = car->pos + (*(arg[0]) + *(arg[1])) % IDX_MOD;
+		*(arg[2]) = ft_value_from_memory(car->all->memory, adress - 1, DIR_SIZE);
 	}
 }
 
 
 
-
+/*
 void	ft_use_command(t_car *car)
 {
 	int *ptr[3];
@@ -753,18 +886,19 @@ void	ft_use_command(t_car *car)
 	ft_ptr_on_arg_by_number(car, 1, &(ptr[1]));
 	ft_ptr_on_arg_by_number(car, 2, &(ptr[2]));
 	ft_arifm_operations(car, ptr);
-	ft_st_sti_operations(car, ptr);
-	/*
+	ft_st_sti_lldi_ldi_cmd(car, ptr);
+
+
 	if (car->action == CMD_LDI)
 		*(ptr[2]) = car->pos + (*(ptr[0]) + *(ptr[1])) % IDX_MOD;
 	else if (car->action == CMD_LLD)
 		*(ptr[1]) = car->pos + *(ptr[0]);
 	else if (car->action == CMD_LLDI)
 		*(ptr[2]) = car->pos + *(ptr[0]) + *(ptr[1]);
-	*/
+
 //	ft_putstr("    Валидная команда!!\n");
 //	exit(0);
-}
+}*/
 
 
 
@@ -772,14 +906,24 @@ void	ft_use_command(t_car *car)
 
 void	ft_wait_or_do_command(t_car *car)
 {
+	int arg[3];
+
 	if (car->wait)
 		(car->wait)--;
 	else
 	{
-		//активация команды
+		ft_bzero((void *)arg, 3 * 4);
+		car->arg[0] = &(arg[0]);
+		car->arg[1] = &(arg[1]);
+		car->arg[2] = &(arg[2]);
+
 		car->pos_shift = 0;
 		if (ft_valid_command(car))
-			ft_use_command(car);
+		{
+			ft_arifm_operations(car, car->arg);
+			ft_st_sti_lldi_ldi_cmd(car, car->arg);
+			//ft_use_command(car);
+		}
 		car->pos = ft_get_pos_of_memory(car->pos + ONE_STEP + car->pos_shift);
 		car->action = READY_TO_ACTION;
 	}
