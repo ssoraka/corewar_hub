@@ -29,7 +29,7 @@
 #define MAX_PLAYERS				4
 #define MEM_SIZE				200//(4*1000)
 #define IDX_MOD					512//(MEM_SIZE / 8)
-#define CHAMP_MAX_SIZE			(MEM_SIZE / 6)
+#define CHAMP_MAX_SIZE			(4*1000) / 6//(MEM_SIZE / 6)
 
 #define COMMENT_CHAR			'#'
 #define LABEL_CHAR				':'

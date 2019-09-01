@@ -13,7 +13,7 @@
 #include "libft.h"
 #include "op.h"
 
-#define MAX_CYCLE 836
+#define MAX_CYCLE 3600
 
 
 #define BYTES_COUNT 20
@@ -184,10 +184,18 @@ int    arg_tab[17][10] =
 	{CMD_AFF,	1,	1,	T_REG,			0,				0},
 };
 
-
-
-#define MSG_ERROR1 "No arguments\n"
-#define MSG_ERROR2 "Can't read source file"
+char    g_errors_tab[10][200] =
+{
+	"No arguments\n",
+	"Can't read file\n",
+	"No players\n",
+	"Repeat of numbers\n",
+	"Code to big\n",
+	"Code to small\n",
+	"No magic\n",
+	"Differen byte size of programm\n",
+	"No null-terminator\n",
+};
 
 
 typedef struct		s_play
@@ -207,12 +215,11 @@ typedef struct		s_all
 	int				cycle_to_die;
 	int				cycle;
 	int				total_cycle;
-	//int				points_of_players[MAX_PLAYERS];
 	int				last_live_player;
 	int				players_count;
 	int				flag_dumb;
 	struct s_play	*players;
-	struct s_play	*player[MAX_PLAYERS];
+	struct s_play	*player[MAX_PLAYERS + 2];
 	struct s_car	*cars;
 }					t_all;
 
@@ -316,7 +323,7 @@ void ft_print_memory(t_all *all)
 		ft_print_byte((unsigned int)byte);
 		if (full[i])
 			ft_putstr("\033[00m");
-		if ((i + 1) % 25)
+		if ((i + 1) % 64)
 			ft_putchar(' ');
 		else
 			ft_putchar('\n');
@@ -456,7 +463,7 @@ void	ft_live(t_car *car, int value)
 
 	all = car->all;
 	value = -value;
-	if (value > 0 && value <= all->players_count)
+	if (value > 0 && value <= MAX_PLAYERS && all->player[value])
 	{
 		((all->player[value])->points)++;
 		all->last_live_player = value;
@@ -677,7 +684,6 @@ void	ft_wait_or_do_command(t_car *car)
 		{
 			ft_arifm_operations(car, car->arg);
 			ft_st_sti_lldi_ldi_cmd(car, car->arg);
-			//ft_use_command(car);
 		}
 		car->pos = ft_get_pos_of_memory(car->pos + ONE_STEP + car->pos_shift);
 		car->action = READY_TO_ACTION;
@@ -817,9 +823,9 @@ t_play	*ft_add_player(t_all *all, char *buf, int number)
 	{
 		buf = buf + 4;
 		ft_memcpy((void *)tmp->prog_name, (void *)buf, PROG_NAME_LENGTH);
-		buf = buf + PROG_NAME_LENGTH + 4 + 3;
-		tmp->prog_size = *((int *)(buf));
-		buf++;
+		buf = buf + PROG_NAME_LENGTH + 3;
+		tmp->prog_size = ft_value_from_memory(buf, 0, 4);
+		buf = buf + 5;
 		ft_memcpy((void *)tmp->comment, (void *)buf, COMMENT_LENGTH);
 		buf = buf + COMMENT_LENGTH + 4;
 		ft_memcpy((void *)tmp->programm, (void *)buf, tmp->prog_size);
@@ -835,30 +841,111 @@ t_play	*ft_add_player(t_all *all, char *buf, int number)
 
 
 
+int		ft_check_errors(t_all *all, char *buf, int size)
+{
+	int len;
+
+	len = 4 + PROG_NAME_LENGTH + 7;
+	if (size > MAX_CODE)
+		ft_error(all, g_errors_tab[4]);
+	if (size < MIN_CODE)
+		ft_error(all, g_errors_tab[5]);
+	if (COREWAR_EXEC_MAGIC != ft_value_from_memory(buf, -1, 4))
+		ft_error(all, g_errors_tab[6]);
+	if (size - MIN_CODE != ft_value_from_memory(buf, len - 4, 4))
+		ft_error(all, g_errors_tab[7]);
+	if (0 != ft_value_from_memory(buf, len - 8, 4))
+		ft_error(all, g_errors_tab[8]);
+	if (0 != ft_value_from_memory(buf, MIN_CODE - 5, 4))
+		ft_error(all, g_errors_tab[8]);
+	return(TRUE);
+}
+
+
 int		ft_read_player(t_all *all, char *name, int number)
 {
 	char	buf[MAX_CODE + 1];
 	int		fd;
 	int		reader;
 	int		valid;
-	int		len;
 
 	valid = FAIL;
-	len = 4 + PROG_NAME_LENGTH + 8;
 	fd = open(name, O_RDONLY);
+	if (ft_strlen(name) <= 4 || ft_strcmp(name + ft_strlen(name) - 4, ".cor"))
+		return (valid);
 	if ((fd = open(name, O_RDONLY)) < 0 || read(fd, NULL, 0) < 0)
 		return (valid);
-	if (((reader = read(fd, buf, MAX_CODE + 1)) <= MAX_CODE) &&
-	reader >= MIN_CODE && //проверить
-	reader - MIN_CODE == *((int *)(buf + len - 1)) && //проверить
-	buf[0] == 0 && buf[1] == (char)0xea &&
-	buf[2] == (char)0x83 && buf[3] == (char)0xf3 &&
-	*((int *)(buf + len - 4)) == 0 && *((int *)(buf + len + COMMENT_LENGTH)) == 0)
-		valid = SUCCESS;
-	if (!(ft_add_player(all, buf, number)))
-		valid = FAIL;
+	reader = read(fd, buf, MAX_CODE + 1);
 	close(fd);
+	if (ft_check_errors(all, buf, reader) && ft_add_player(all, buf, number))
+		valid = SUCCESS;
 	return (valid);
+}
+
+
+
+
+/*
+**	проверка наличия лишних символов в строке и
+*/
+
+int		ft_is_not_number(char **str)
+{
+	int		i;
+	char	*tmp;
+
+	i = 0;
+	while (**str == '0' && (*str + 1) && ft_isdigit(*(*str + 1)))
+		(*str)++;
+	tmp = *str;
+	if (!ft_isdigit(*tmp))
+		return (1);
+	while (*tmp && ft_isdigit(*tmp))
+		tmp++;
+	i = ft_strlen(tmp);
+	while (i > 0)
+	{
+		if (ft_isspace(tmp[i - 1]))
+			tmp[i - 1] = '\0';
+		else
+			break ;
+		i--;
+	}
+	if (*tmp)
+		return (1);
+	return (0);
+}
+
+/*
+**	проверка наличия лишних символов в строке и
+**	принадлежности числа к integer
+*/
+
+int		ft_str_not_int_number(char *str)
+{
+	int i;
+	int minus;
+
+	i = 0;
+	minus = 0;
+	while (ft_isspace(*str))
+		str++;
+	if (*str == '-')
+		minus = 1;
+	if (*str == '-' || *str == '+')
+		str++;
+	if (ft_is_not_number(&str))
+		return (1);
+	if (ft_strlen(str) > 10)
+		return (1);
+	if (ft_strlen(str) == 10)
+	{
+		if (minus && ft_strcmp("2147483648", str) < 0)
+			return (1);
+		if (!minus && ft_strcmp("2147483647", str) < 0)
+			return (1);
+	}
+	return (0);
 }
 
 
@@ -871,25 +958,117 @@ int		ft_read_memory2(t_all *all, char **argv, int argc)
 	int flag_n;
 
 	flag_n = FALSE;
+	number = 0;
 	i = 0;
-	while (i < argc)
+	while (i < argc && all->players_count < MAX_PLAYERS)
 	{
-		if (flag_n == FALSE)
-			number = 0;
-		if (flag_n == TRUE) // && ft_is_int_num(argv)
-		{
-			flag_n = FALSE;
+		if (flag_n == TRUE && !ft_str_not_int_number(argv[i]) &&
+		ft_atoi(argv[i]) > 0 && ft_atoi(argv[i]) <= MAX_PLAYERS &&
+		(flag_n = FALSE) == FALSE)
 			number = ft_atoi(argv[i]);
-		}
-		if (!ft_strcmp(argv[i], "-n"))
+		else if (!ft_strcmp(argv[i], "-n"))
 			flag_n = TRUE;
 		else if (!ft_strcmp(argv[i], "-dumb"))
 			all->flag_dumb = 1;
-		else if (ft_read_player(all, argv[i], number) == FAIL)
+		else if (!flag_n && ft_read_player(all, argv[i], number) == SUCCESS)
+			number = 0;
+		else
 			return (FAIL);
 		i++;
 	}
 	return (SUCCESS);
+}
+
+
+void	ft_place_players_without_num(t_all *all)
+{
+	t_play *tmp;
+	int i;
+
+	tmp = all->players;
+	i = 1;
+	while (i <= all->players_count && tmp)
+	{
+		if (tmp->number != 0 || all->player[i] == tmp)
+			tmp = tmp->next;
+		else if (all->player[i])
+			i++;
+		else
+		{
+			all->player[i] = tmp;
+			all->player[i]->number = i;
+		}
+	}
+}
+
+/*
+void	ft_elevate_and_renum_players(t_all *all)
+{
+	t_play **tmp;
+	int i;
+
+	i = 1;
+	while (i <= all->players_count)
+	{
+		if (!all->player[i])
+		{
+			tmp = &(all->player[i]);
+			while (!(*tmp))
+				tmp++;
+			all->player[i] = *tmp;
+			*tmp = NULL;
+		}
+		//all->player[i]->number = i;
+		i++;
+	}
+}*/
+
+int		ft_arr_of_number_players(t_all *all)
+{
+	t_play *tmp;
+	int i;
+
+	i = 1;
+	while (i < MAX_PLAYERS + 1)
+	{
+		tmp = all->players;
+		while (tmp)
+		{
+			if (all->player[i] && tmp->number == i && all->player[i] != tmp)
+				return (FAIL);
+			if (!(all->player[i]) && tmp->number == i)
+				all->player[i] = tmp;
+			tmp = tmp->next;
+		}
+		i++;
+	}
+	return (SUCCESS);
+}
+
+
+
+void	ft_place_prog_and_cars(t_all *all)
+{
+	int i;
+	int pos;
+	t_car *car;
+	t_play *p;
+
+	i = 1;
+	pos = 0;
+	while (i < MAX_PLAYERS + 1)
+	{
+		if (all->player[i])
+		{
+			p = all->player[i];
+			car = ft_add_car(i, all);
+			car->pos = pos;
+			ft_memcpy((void *)all->memory + pos, (void *)p->programm, p->prog_size);
+			pos += MEM_SIZE / (all->players_count);
+		}
+		i++;
+	}
+	all->last_live_player = -(car->reg[1]);
 }
 
 
@@ -901,23 +1080,48 @@ int main(int argc, char **argv)
 {
 	t_all *all;
 
-	all = ft_create_all(1);
+	all = ft_create_all(0);
 	if (argc == 1)
-		ft_error(all, MSG_ERROR1);
+		ft_error(all, g_errors_tab[1]);
 	if (ft_read_memory2(all, argv + 1, argc - 1) == FAIL)
-		ft_error(all, MSG_ERROR2);
+		ft_error(all, g_errors_tab[2]);
+	if (!all->players_count)
+		ft_error(all, g_errors_tab[3]);
+	if (ft_arr_of_number_players(all) == FAIL)
+		ft_error(all, g_errors_tab[4]);
+	ft_place_players_without_num(all);
+	//ft_elevate_and_renum_players(all);
 
-exit(0);
+	ft_place_prog_and_cars(all);
+
+
+
+/*	int i = 0;
+	printf("_%d_\n", all->players_count);
+	while (i < MAX_PLAYERS + 1)
+	{
+		printf("%d_", i);
+		if (all->player[i])
+			printf("%s_%d", (all->player[i])->prog_name, (all->player[i])->number);
+		printf("\n");
+		i++;
+	}*/
+
+	ft_print_memory(all);
+
+
+
+/*
 	if (ft_read_memory(argv[1], all->memory))
 		ft_print_memory(all);
 	else
 		ft_putstr("не прочел память\n");
-
+*/
 
 		//all->cars = ft_create_car(1, all);
-		ft_add_car(1, all);
+		//ft_add_car(1, all);
 		//all->cars->next = ft_create_car(2);
-		all->cars->pos = 0;
+		//all->cars->pos = 0;
 		//all->cars->next->pos = 3;
 
 
@@ -927,10 +1131,6 @@ exit(0);
 	{
 		ft_cycle(all);
 	}
-
-	//write(1,"qazwsxedcrfvtgbyhnujmik,ol.p;/[]\n",20);
-	//lseek(1, -10, SEEK_END);
-	//write(1,"qazwsxedcrfvtgbyhnujmik,ol.p;/[]\n",20);
 
 	return (0);
 }
