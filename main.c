@@ -13,8 +13,8 @@
 #include "libft.h"
 #include "op.h"
 
-#define MAX_CYCLE 3600
-
+//#define MAX_CYCLE 3600
+#define DUMP_LENGTH 64
 
 #define BYTES_COUNT 20
 char str[100] = {
@@ -218,6 +218,9 @@ typedef struct		s_all
 	int				last_live_player;
 	int				players_count;
 	int				flag_dumb;
+	int				dumb_cycle;
+	int				nbr_live;
+	int				nbr_check;
 	struct s_play	*players;
 	struct s_play	*player[MAX_PLAYERS + 2];
 	struct s_car	*cars;
@@ -469,6 +472,7 @@ void	ft_live(t_car *car, int value)
 		all->last_live_player = value;
 	}
 	car->cycle_of_calling_life = all->total_cycle;
+	(all->nbr_live)++;
 }
 
 
@@ -737,12 +741,21 @@ void	ft_check_of_cars(t_all *all)
 	while (car)
 	{
 		cycles = all->total_cycle - car->cycle_of_calling_life;
-			if (cycles > all->cycle_to_die)
-				ft_del_car(all, car);
+		if (cycles >= all->cycle_to_die)
+			ft_del_car(all, car);
 		car = car->next;
 	}
-	all->cycle_to_die -= CYCLE_DELTA;
-	all->cycle = 0;
+	if (all->nbr_live >= NBR_LIVE || all->nbr_check >= MAX_CHECKS)
+	{
+		all->nbr_check = 0;
+		all->cycle_to_die -= CYCLE_DELTA;
+		if (all->cycle_to_die < 1)
+			all->cycle_to_die = 1;
+	}
+	else
+		(all->nbr_check)++;
+	all->nbr_live = 0;
+	all->cycle = 1;
 }
 
 
@@ -768,22 +781,30 @@ void	ft_cycle(t_all *all)
 	}
 	(all->cycle)++;
 	(all->total_cycle)++;
-	if (all->cycle == all->cycle_to_die || all->cycle_to_die < 0)
-		ft_check_of_cars(all);
 
-	ft_print_memory(all);
-	if (all->total_cycle == MAX_CYCLE)
-		exit(0);
+
+	//ft_print_memory(all);
+	//if (all->total_cycle == MAX_CYCLE)
+	//	exit(0);
 }
 
 
 
 void	ft_error(t_all *all, char *error_msg)
 {
+	t_play *play;
+
+	play = NULL;
 	if (error_msg)
 		ft_putendl(error_msg);
 	while (all && all->cars)
 		ft_del_car(all, all->cars);
+	while (all && all->players)
+	{
+		play = all->players;
+		all->players = all->players->next;
+		free(play);
+	}
 	free(all);
 	exit (0);
 }
@@ -949,29 +970,41 @@ int		ft_str_not_int_number(char *str)
 }
 
 
+int		ft_check_flags(t_all *all, char *argv, char *flag)
+{
+	if (!ft_strcmp(flag, "-n") && ft_atoi(argv) > 0 &&
+	ft_atoi(argv) <= MAX_PLAYERS)
+		return (ft_atoi(argv));
+	if (!ft_strcmp(flag, "-dump") && ft_atoi(argv) > 0)
+	{
+		all->flag_dumb = 1;
+		all->dumb_cycle = ft_atoi(argv);
+	}
+	return (0);
+}
+
 
 
 int		ft_read_memory2(t_all *all, char **argv, int argc)
 {
 	int i;
 	int number;
-	int flag_n;
+	char *flag;
 
-	flag_n = FALSE;
+	flag = NULL;
 	number = 0;
 	i = 0;
 	while (i < argc && all->players_count < MAX_PLAYERS)
 	{
-		if (flag_n == TRUE && !ft_str_not_int_number(argv[i]) &&
-		ft_atoi(argv[i]) > 0 && ft_atoi(argv[i]) <= MAX_PLAYERS &&
-		(flag_n = FALSE) == FALSE)
-			number = ft_atoi(argv[i]);
-		else if (!ft_strcmp(argv[i], "-n"))
-			flag_n = TRUE;
-		else if (!ft_strcmp(argv[i], "-dumb"))
-			all->flag_dumb = 1;
-		else if (!flag_n && ft_read_player(all, argv[i], number) == SUCCESS)
+		if (!ft_strcmp(argv[i], "-n") || !ft_strcmp(argv[i], "-dump"))
+			flag = argv[i];
+		else if (flag && !ft_str_not_int_number(argv[i]))
+			number = ft_check_flags(all, argv[i], flag);
+		else if (ft_read_player(all, argv[i], number) == SUCCESS)
+		{
+			flag = NULL;
 			number = 0;
+		}
 		else
 			return (FAIL);
 		i++;
@@ -1072,6 +1105,72 @@ void	ft_place_prog_and_cars(t_all *all)
 }
 
 
+void	ft_print_champ(t_all *all)
+{
+	int i;
+
+	i = 1;
+	ft_putstr("Introducing contestants...\n");
+	while (i <= MAX_PLAYERS)
+	{
+		if (all->player[i])
+		{
+			ft_putstr("* Player ");
+			ft_putnbr(i);
+			ft_putstr(", weighing ");
+			ft_putnbr(all->player[i]->prog_size);
+			ft_putstr(" bytes, \"");
+			ft_putstr(all->player[i]->prog_name);
+			ft_putstr("\" (\"");
+			ft_putstr(all->player[i]->comment);
+			ft_putstr("\") !\n");
+		}
+		i++;
+	}
+}
+
+
+void	ft_print_winner(t_all *all)
+{
+	t_play *play;
+
+	play = all->player[all->last_live_player];
+	ft_putstr("Contestant ");
+	ft_putnbr(play->number);
+	ft_putstr(", \"");
+	ft_putstr(play->prog_name);
+	ft_putstr("\" has won !\n");
+}
+
+
+
+void	ft_print_dump(t_all *all, char *memory)
+{
+	int i;
+	unsigned char byte;
+	char *num;
+
+	i = 0;
+	while (i < MEM_SIZE)
+	{
+		if (!(i % DUMP_LENGTH))
+		{
+			ft_putstr("0x");
+			num = (char *)(&i);
+			ft_print_byte((unsigned int)(unsigned char)num[1]);
+			ft_print_byte((unsigned int)(unsigned char)num[0]);
+			ft_putstr(" : ");
+		}
+		byte = (unsigned char)(*(memory + i));
+		ft_print_byte((unsigned int)byte);
+		if ((i + 1) % DUMP_LENGTH)
+			ft_putchar(' ');
+		else
+			ft_putstr(" \n");
+		i++;
+	}
+	ft_error(all, NULL);
+}
 
 
 
@@ -1090,6 +1189,7 @@ int main(int argc, char **argv)
 	if (ft_arr_of_number_players(all) == FAIL)
 		ft_error(all, g_errors_tab[4]);
 	ft_place_players_without_num(all);
+
 	//ft_elevate_and_renum_players(all);
 
 	ft_place_prog_and_cars(all);
@@ -1107,7 +1207,7 @@ int main(int argc, char **argv)
 		i++;
 	}*/
 
-	ft_print_memory(all);
+//	ft_print_memory(all);
 
 
 
@@ -1125,12 +1225,21 @@ int main(int argc, char **argv)
 		//all->cars->next->pos = 3;
 
 
-	//ft_write_new_champ("text2.cor");
 
+	//ft_write_new_champ("text2.cor");
+	ft_print_champ(all);
+	if (all->flag_dumb && all->dumb_cycle == 0)
+		ft_print_dump(all, all->memory);
 	while (all->cars)
 	{
 		ft_cycle(all);
+	//	ft_print_memory(all);
+		if (all->flag_dumb && all->dumb_cycle == all->total_cycle)
+			ft_print_dump(all, all->memory);
+		if (all->cycle == all->cycle_to_die || all->cycle_to_die <= 0)
+			ft_check_of_cars(all);
 	}
-
+	ft_print_winner(all);
+	ft_error(all, NULL);
 	return (0);
 }
