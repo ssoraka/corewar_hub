@@ -13,7 +13,8 @@
 #include "libft.h"
 #include "op.h"
 
-//#define MAX_CYCLE 3600
+#define TEST
+#define MAX_CYCLE 10
 #define DUMP_LENGTH 64
 
 #define BYTES_COUNT 20
@@ -499,18 +500,27 @@ int		ft_arg_is_valid(t_car *car, int arg_bits, int arg_number)
 	int arg_type;
 	int cmd_arg_mask;
 
-	valid = TRUE;
-	reg = 0;
-	if (arg_bits == REG_CODE)
-	{
-		reg = ft_value_from_memory(car->all->memory, car->pos + car->pos_shift, 1);
-		if (reg > REG_NUMBER || reg <= 0)
-			valid = FALSE;
-	}
+	valid = FALSE;
+
 	arg_type = opt_tab2[arg_bits][1];
 	cmd_arg_mask = arg_tab[car->action][ARG_1 + arg_number];
 	if (arg_type & cmd_arg_mask)
-		valid = FALSE;
+		valid = TRUE;
+	reg = 0;
+	if (valid && arg_bits == REG_CODE)
+	{
+		reg = ft_value_from_memory(car->all->memory, car->pos + car->pos_shift, 1);
+
+		//ft_putnbr_end(car->action);
+		//ft_putnbr_end(reg);
+
+		if (reg <= REG_NUMBER && reg > 0)
+			valid = TRUE;
+		else
+			valid = FALSE;
+	}
+
+
 	return (valid);
 }
 
@@ -559,7 +569,10 @@ int		ft_parsing_of_args(t_car *car)
 		car->arg_byte = car->arg_byte << 8;
 		if (i < arg_tab[car->action][ARG_COUNT])
 		{
-			if (ft_arg_is_valid(car, arg_bits, i) == FAIL)
+			//ft_putnbr(car->pos_shift);
+			//ft_putchar(' ');
+			//ft_putnbr_end(arg_bits);
+			if (ft_arg_is_valid(car, arg_bits, i) == FALSE)
 				valid = FAIL;
 			else
 				ft_return_arg(car, arg_bits, &(car->arg[i]));
@@ -568,6 +581,8 @@ int		ft_parsing_of_args(t_car *car)
 		}
 		i++;
 	}
+	//////////////////////////
+	//ft_putnbr_end(valid);
 	return (valid);
 }
 
@@ -584,7 +599,7 @@ int		ft_valid_command(t_car *car)
 		car->pos_shift = ONE_STEP;
 		if (ft_parsing_of_args(car) == FAIL)
 			valid = FALSE;
-		//ft_putnbr_end(car->pos_shift);
+		//ft_putnbr_end(valid);
 	}
 	else
 	{
@@ -781,11 +796,6 @@ void	ft_cycle(t_all *all)
 	}
 	(all->cycle)++;
 	(all->total_cycle)++;
-
-
-	//ft_print_memory(all);
-	//if (all->total_cycle == MAX_CYCLE)
-	//	exit(0);
 }
 
 
@@ -1139,7 +1149,7 @@ void	ft_print_winner(t_all *all)
 	ft_putnbr(play->number);
 	ft_putstr(", \"");
 	ft_putstr(play->prog_name);
-	ft_putstr("\" has won !\n");
+	ft_putstr("\", has won !\n");
 }
 
 
@@ -1233,11 +1243,19 @@ int main(int argc, char **argv)
 	while (all->cars)
 	{
 		ft_cycle(all);
-	//	ft_print_memory(all);
-		if (all->flag_dumb && all->dumb_cycle == all->total_cycle)
-			ft_print_dump(all, all->memory);
-		if (all->cycle == all->cycle_to_die || all->cycle_to_die <= 0)
+		#ifdef TEST
+		ft_print_memory(all);
+		#endif
+		if (all->cycle >= all->cycle_to_die)// || all->cycle_to_die <= 0)
 			ft_check_of_cars(all);
+		if (all->cars && all->flag_dumb && all->dumb_cycle == all->total_cycle)
+			ft_print_dump(all, all->memory);
+
+		#ifdef TEST
+		if (all->total_cycle == MAX_CYCLE)
+			exit(0);
+		#endif
+
 	}
 	ft_print_winner(all);
 	ft_error(all, NULL);
