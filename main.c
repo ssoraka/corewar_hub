@@ -13,16 +13,16 @@
 #include "libft.h"
 #include "op.h"
 
-#define TEST
-#define MAX_CYCLE 10
+#define TEST1
+#define MAX_CYCLE 14611
 #define DUMP_LENGTH 64
 
 #define BYTES_COUNT 20
 char str[100] = {
 
-0x04, 0b00000010, 0x0c, 0x0c, 0x0c,
-0x0c, 0x0c, 0x0c, 0x0c, 0x0c,
-0x0c, 0x0c, 0x0c, 0x0c, 0x0c,
+0x0b, 0x78, 0x01, 0x01, 0x01,
+0x01, 0x01, 0x01, 0x01, 0x01,
+0x01, 0x01, 0x01, 0x01, 0x01,
 0x09, 0xff, 0xf6,
 0x00, 0x00
 };
@@ -451,8 +451,10 @@ void	ft_copy_fork(t_car *car, int new_pos)
 {
 	t_car *new;
 
-	new = ft_add_car(-(car->reg[1]), car->all);
-	ft_memcpy((void *)new, (void *)car, sizeof(car));
+	new = ft_create_car(-(car->reg[1]), car->all);
+	ft_memcpy((void *)new, (void *)car, sizeof(t_car));
+	new->next = car->all->cars;
+	car->all->cars = new;
 	if (car->action == CMD_FORK)
 		new_pos = car->pos + new_pos % IDX_MOD;
 	else if (car->action == CMD_LFORK)
@@ -506,7 +508,7 @@ int		ft_arg_is_valid(t_car *car, int arg_bits, int arg_number)
 	cmd_arg_mask = arg_tab[car->action][ARG_1 + arg_number];
 	if (arg_type & cmd_arg_mask)
 		valid = TRUE;
-	reg = 0;
+	//reg = 0;
 	if (valid && arg_bits == REG_CODE)
 	{
 		reg = ft_value_from_memory(car->all->memory, car->pos + car->pos_shift, 1);
@@ -514,13 +516,9 @@ int		ft_arg_is_valid(t_car *car, int arg_bits, int arg_number)
 		//ft_putnbr_end(car->action);
 		//ft_putnbr_end(reg);
 
-		if (reg <= REG_NUMBER && reg > 0)
-			valid = TRUE;
-		else
+		if (reg > REG_NUMBER || reg <= 0)
 			valid = FALSE;
 	}
-
-
 	return (valid);
 }
 
@@ -541,11 +539,12 @@ void	ft_return_arg(t_car *car, int arg_bits, int **arg)
 	else if (arg_bits == IND_CODE)
 	{
 		address = car->pos + (**arg) % IDX_MOD;
-		if (car->action != CMD_LLD)
+		if (car->action == CMD_LLD)
 			address = car->pos + (**arg);
 		if (car->action != CMD_ST)// || car->action != CMD_STI)
 			**arg = ft_value_from_memory(car->all->memory, address - 1, DIR_SIZE);
 		else
+			//**arg = (car->pos + **arg) % IDX_MOD;//address;
 			**arg = address;
 	}
 }
@@ -576,6 +575,14 @@ int		ft_parsing_of_args(t_car *car)
 				valid = FAIL;
 			else
 				ft_return_arg(car, arg_bits, &(car->arg[i]));
+
+			/*if (car->action == CMD_STI && i == 1)
+			{
+				ft_putstr("sti\n");
+				ft_putnbr_end(*car->arg[i]);
+				ft_putnbr_end(car->pos);
+			}*/
+
 			car->pos_shift += ft_size_of_arg_by_type(car->action, arg_bits);
 			car->arg_byte = car->arg_byte | opt_tab2[arg_bits][1];
 		}
@@ -652,7 +659,7 @@ void	ft_arifm_operations(t_car *car, int **arg)
 	else if (car->action == CMD_LIVE)
 		ft_live(car, *(arg[0]));
 	else if (car->action == CMD_AFF)
-		ft_putchar((char)*(arg[0]));
+		;//ft_putchar((char)*(arg[0]));
 	ft_modify_carry(car, arg);
 }
 
@@ -667,11 +674,16 @@ void	ft_st_sti_lldi_ldi_cmd(t_car *car, int **arg)
 		if (arg[1] >= car->reg && arg[1] <= car->reg + REG_NUMBER)
 			*(arg[1]) = *(arg[0]);
 		else
+		{
+			//ft_putnbr_end(*(arg[1]));
+			//ft_putnbr_end(car->pos);
 			ft_value_in_memory(car->all->memory, *(arg[1]), *(arg[0]), DIR_SIZE);
+		}
 	}
 	else if (car->action == CMD_STI)
 	{
 		adress = car->pos + (*(arg[1]) + *(arg[2])) % IDX_MOD;
+		//ft_putnbr_end(*(arg[1]));
 		ft_value_in_memory(car->all->memory, adress, *(arg[0]), DIR_SIZE);
 	}
 	else if (car->action == CMD_LLDI || car->action == CMD_LDI)
@@ -1104,7 +1116,10 @@ void	ft_place_prog_and_cars(t_all *all)
 		if (all->player[i])
 		{
 			p = all->player[i];
-			car = ft_add_car(i, all);
+			//car = ft_add_car(i, all);
+			car = ft_create_car(i, all);
+			car->next = all->cars;
+			all->cars = car;
 			car->pos = pos;
 			ft_memcpy((void *)all->memory + pos, (void *)p->programm, p->prog_size);
 			pos += MEM_SIZE / (all->players_count);
@@ -1160,6 +1175,21 @@ void	ft_print_dump(t_all *all, char *memory)
 	unsigned char byte;
 	char *num;
 
+	#ifdef TEST
+	char full[MEM_SIZE];
+	t_car *car;
+
+	ft_putnbr(all->total_cycle);
+	ft_putchar('\n');
+	ft_bzero((void *)full, MEM_SIZE);
+	car = all->cars;
+	while (car)
+	{
+		full[car->pos] = 1;
+		car = car->next;
+	}
+	#endif
+
 	i = 0;
 	while (i < MEM_SIZE)
 	{
@@ -1172,14 +1202,27 @@ void	ft_print_dump(t_all *all, char *memory)
 			ft_putstr(" : ");
 		}
 		byte = (unsigned char)(*(memory + i));
+
+		#ifdef TEST
+		if (full[i])
+			ft_putstr("\033[7m");
+		#endif
+
 		ft_print_byte((unsigned int)byte);
+
+		#ifdef TEST
+		if (full[i])
+			ft_putstr("\033[00m");
+		#endif
 		if ((i + 1) % DUMP_LENGTH)
 			ft_putchar(' ');
 		else
 			ft_putstr(" \n");
 		i++;
 	}
+	#ifndef TEST
 	ft_error(all, NULL);
+	#endif
 }
 
 
@@ -1244,7 +1287,8 @@ int main(int argc, char **argv)
 	{
 		ft_cycle(all);
 		#ifdef TEST
-		ft_print_memory(all);
+		if (all->total_cycle > MAX_CYCLE - 50)
+			ft_print_dump(all, all->memory);
 		#endif
 		if (all->cycle >= all->cycle_to_die)// || all->cycle_to_die <= 0)
 			ft_check_of_cars(all);
