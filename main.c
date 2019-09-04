@@ -13,8 +13,8 @@
 #include "libft.h"
 #include "op.h"
 
-#define TEST1
-#define MAX_CYCLE 14611
+#define TEST
+#define MAX_CYCLE 13548
 #define DUMP_LENGTH 64
 
 #define BYTES_COUNT 20
@@ -26,7 +26,6 @@ char str[100] = {
 0x09, 0xff, 0xf6,
 0x00, 0x00
 };
-
 
 
 void	ft_write_new_champ(char *name)
@@ -132,7 +131,26 @@ int    opt_tab[17][10] =
 };
 
 
-
+char    opt_cmd[17][10] =
+{
+	"",
+	"live",
+	"ld",
+	"st",
+	"add",
+	"sub",
+	"and",
+	"or",
+	"xor",
+	"zjmp",
+	"ldi",
+	"sti",
+	"fork",
+	"lld",
+	"lldi",
+	"lfork",
+	"aff"
+};
 
 
 
@@ -218,6 +236,7 @@ typedef struct		s_all
 	int				total_cycle;
 	int				last_live_player;
 	int				players_count;
+	int				cars_count;
 	int				flag_dumb;
 	int				dumb_cycle;
 	int				nbr_live;
@@ -238,6 +257,7 @@ typedef struct		s_car
 	int				wait;
 	int				carry;
 	int				cycle_of_calling_life;
+	int				num;
 	int				*arg[3];
 	struct s_all	*all;
 	struct s_car	*next;
@@ -265,6 +285,8 @@ t_car	*ft_create_car(int player_num, t_all *all)
 		return (NULL);
 	tmp->reg[1] = -player_num;
 	tmp->all = all;
+	(all->cars_count)++;
+	tmp->num = all->cars_count;
 	return (tmp);
 }
 
@@ -461,6 +483,7 @@ void	ft_copy_fork(t_car *car, int new_pos)
 		new_pos = car->pos + new_pos;
 	new->pos = ft_get_pos_of_memory(new_pos);
 	new->action = READY_TO_ACTION;
+	new->num = car->all->cars_count;
 }
 
 void	ft_live(t_car *car, int value)
@@ -543,9 +566,9 @@ void	ft_return_arg(t_car *car, int arg_bits, int **arg)
 			address = car->pos + (**arg);
 		if (car->action != CMD_ST)// || car->action != CMD_STI)
 			**arg = ft_value_from_memory(car->all->memory, address - 1, DIR_SIZE);
-		else
+		//else
 			//**arg = (car->pos + **arg) % IDX_MOD;//address;
-			**arg = address;
+			//**arg = address;
 	}
 }
 
@@ -677,7 +700,8 @@ void	ft_st_sti_lldi_ldi_cmd(t_car *car, int **arg)
 		{
 			//ft_putnbr_end(*(arg[1]));
 			//ft_putnbr_end(car->pos);
-			ft_value_in_memory(car->all->memory, *(arg[1]), *(arg[0]), DIR_SIZE);
+			adress = car->pos + (*arg[1]) % IDX_MOD;
+			ft_value_in_memory(car->all->memory, adress, *(arg[0]), DIR_SIZE);
 		}
 	}
 	else if (car->action == CMD_STI)
@@ -694,6 +718,72 @@ void	ft_st_sti_lldi_ldi_cmd(t_car *car, int **arg)
 			adress = car->pos + (*(arg[0]) + *(arg[1])) % IDX_MOD;
 		*(arg[2]) = ft_value_from_memory(car->all->memory, adress - 1, DIR_SIZE);
 	}
+}
+
+
+
+void	ft_print_arg(t_car *car, int *arg, int cmd, int arg_num)
+{
+	int num;
+	int answer;
+
+	num = 0;
+	answer = 0;
+	if (cmd == CMD_ST || cmd == CMD_STI)
+		answer = 1;
+	else if (cmd == CMD_LD || cmd == CMD_LLD)
+		answer = 2;
+	else if (cmd == CMD_ADD || cmd == CMD_SUB || cmd == CMD_AND ||
+	cmd == CMD_XOR || cmd == CMD_OR || cmd == CMD_LDI || cmd == CMD_LLDI)
+		answer = 3;
+	if (answer == arg_num && arg >= car->reg && arg <= car->reg + REG_NUMBER)
+	{
+		num = (int)(arg - car->reg);
+		printf(" r%d", num);
+	}
+	else
+	{
+		if (cmd == CMD_ST && arg >= car->reg && arg <= car->reg + REG_NUMBER)
+		{
+			num = (int)(arg - car->reg);
+			printf(" %d", num);
+		}
+		else
+		printf(" %d", *arg);
+	}
+}
+
+
+
+void	ft_print_operation(t_car *car, int **arg)
+{
+	if (car->action == CMD_AFF)
+		return ;
+	printf("P %4d | %s", car->num, opt_cmd[car->action]);
+
+
+	ft_print_arg(car, arg[0], car->action, 1);
+	if (car->action == CMD_FORK || car->action == CMD_LFORK ||
+	car->action == CMD_LIVE || car->action == CMD_ZJMP)
+	{
+		if (car->action == CMD_ZJMP)
+			printf(" OK");
+		else if (car->action == CMD_FORK)
+			printf(" (%d)", car->pos + *arg[0] % IDX_MOD);
+		else if (car->action == CMD_LFORK)
+			printf(" (%d)", car->pos + *arg[0]);
+		printf("\n");
+		return ;
+	}
+	ft_print_arg(car, arg[1], car->action, 2);
+	if (car->action == CMD_ST || car->action == CMD_LD ||
+	car->action == CMD_LLD)
+	{
+		printf("\n");
+		return ;
+	}
+	ft_print_arg(car, arg[2], car->action, 3);
+	printf("\n");
 }
 
 
@@ -715,6 +805,9 @@ void	ft_wait_or_do_command(t_car *car)
 		{
 			ft_arifm_operations(car, car->arg);
 			ft_st_sti_lldi_ldi_cmd(car, car->arg);
+			#ifdef TEST1
+			ft_print_operation(car, car->arg);
+			#endif
 		}
 		car->pos = ft_get_pos_of_memory(car->pos + ONE_STEP + car->pos_shift);
 		car->action = READY_TO_ACTION;
@@ -768,7 +861,7 @@ void	ft_check_of_cars(t_all *all)
 	while (car)
 	{
 		cycles = all->total_cycle - car->cycle_of_calling_life;
-		if (cycles >= all->cycle_to_die)
+		if (cycles >= all->cycle_to_die || all->cycle_to_die <= 0)
 			ft_del_car(all, car);
 		car = car->next;
 	}
@@ -793,6 +886,11 @@ void	ft_cycle(t_all *all)
 	t_car *car;
 
 	car = all->cars;
+	(all->cycle)++;
+	(all->total_cycle)++;
+	#ifdef TEST1
+	printf("It is now cycle %d\n", all->total_cycle);
+	#endif
 	while (car)
 	{
 		if (car->action == READY_TO_ACTION)
@@ -806,8 +904,7 @@ void	ft_cycle(t_all *all)
 			ft_wait_or_do_command(car);
 		car = car->next;
 	}
-	(all->cycle)++;
-	(all->total_cycle)++;
+
 }
 
 
@@ -1185,6 +1282,7 @@ void	ft_print_dump(t_all *all, char *memory)
 	car = all->cars;
 	while (car)
 	{
+		//if (car->num == 141)
 		full[car->pos] = 1;
 		car = car->next;
 	}
@@ -1222,6 +1320,37 @@ void	ft_print_dump(t_all *all, char *memory)
 	}
 	#ifndef TEST
 	ft_error(all, NULL);
+	#endif
+
+	#ifdef TEST
+	ft_putchar('\n');
+	ft_putnbr_end(all->cycle);
+
+	car = all->cars;
+	while (car)
+	{
+		if (car->action >= 0)
+		{
+			ft_putnbr(car->num);
+			ft_putchar(' ');
+			ft_putnbr(car->action);
+			ft_putchar(' ');
+			ft_putnbr(car->pos);
+			ft_putchar(' ');
+			ft_putnbr(car->cycle_of_calling_life);
+			ft_putchar(' ');
+			i = 0;
+			while (i < 17)
+			{
+				ft_putnbr(car->reg[i]);
+				ft_putchar(' ');
+				i++;
+			}
+			ft_putchar('\n');
+		}
+		car = car->next;
+	}
+	ft_putchar('\n');
 	#endif
 }
 
@@ -1283,14 +1412,18 @@ int main(int argc, char **argv)
 	ft_print_champ(all);
 	if (all->flag_dumb && all->dumb_cycle == 0)
 		ft_print_dump(all, all->memory);
+
+	//(all->cycle)++;
+	//(all->total_cycle)++;
+
 	while (all->cars)
 	{
 		ft_cycle(all);
 		#ifdef TEST
-		if (all->total_cycle > MAX_CYCLE - 50)
+		if (all->total_cycle > MAX_CYCLE - 7)
 			ft_print_dump(all, all->memory);
 		#endif
-		if (all->cycle >= all->cycle_to_die)// || all->cycle_to_die <= 0)
+		if (all->cycle >= all->cycle_to_die)
 			ft_check_of_cars(all);
 		if (all->cars && all->flag_dumb && all->dumb_cycle == all->total_cycle)
 			ft_print_dump(all, all->memory);
