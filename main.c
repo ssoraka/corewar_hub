@@ -13,8 +13,8 @@
 #include "libft.h"
 #include "op.h"
 
-#define TEST
-#define MAX_CYCLE 13548
+#define TEST111
+#define MAX_CYCLE 1100
 #define DUMP_LENGTH 64
 
 #define BYTES_COUNT 20
@@ -76,9 +76,6 @@ void	ft_write_new_champ(char *name)
 #define MAX_CODE (MIN_CODE + CHAMP_MAX_SIZE)
 
 #define ARG_MASK 0b00000011
-//#define REG_MASK 0b00000001
-//#define DIR_MASK 0b00000010
-//#define IND_MASK 0b00000011
 
 typedef enum	s_com
 {
@@ -494,7 +491,7 @@ void	ft_live(t_car *car, int value)
 	value = -value;
 	if (value > 0 && value <= MAX_PLAYERS && all->player[value])
 	{
-		((all->player[value])->points)++;
+		(all->player[value])->points = all->total_cycle;
 		all->last_live_player = value;
 	}
 	car->cycle_of_calling_life = all->total_cycle;
@@ -865,17 +862,20 @@ void	ft_check_of_cars(t_all *all)
 			ft_del_car(all, car);
 		car = car->next;
 	}
+	(all->nbr_check)++;
+	//printf("%d\n", all->nbr_live);
+	//printf("%d_%d->", all->total_cycle, all->cycle_to_die);
 	if (all->nbr_live >= NBR_LIVE || all->nbr_check >= MAX_CHECKS)
 	{
 		all->nbr_check = 0;
 		all->cycle_to_die -= CYCLE_DELTA;
-		if (all->cycle_to_die < 1)
-			all->cycle_to_die = 1;
+//		if (all->cycle_to_die < 1)
+//			all->cycle_to_die = 1;
 	}
-	else
-		(all->nbr_check)++;
+	//printf("%d_%d\n", all->cycle_to_die, all->nbr_check);
 	all->nbr_live = 0;
-	all->cycle = 1;
+	all->cycle = 0;//1
+	//printf("___%d\n", all->cycle_to_die);
 }
 
 
@@ -1277,6 +1277,8 @@ void	ft_print_dump(t_all *all, char *memory)
 	t_car *car;
 
 	ft_putnbr(all->total_cycle);
+	ft_putchar('_');
+	ft_putnbr(all->cycle_to_die);
 	ft_putchar('\n');
 	ft_bzero((void *)full, MEM_SIZE);
 	car = all->cars;
@@ -1407,7 +1409,6 @@ int main(int argc, char **argv)
 		//all->cars->next->pos = 3;
 
 
-
 	//ft_write_new_champ("text2.cor");
 	ft_print_champ(all);
 	if (all->flag_dumb && all->dumb_cycle == 0)
@@ -1425,6 +1426,7 @@ int main(int argc, char **argv)
 		#endif
 		if (all->cycle >= all->cycle_to_die)
 			ft_check_of_cars(all);
+
 		if (all->cars && all->flag_dumb && all->dumb_cycle == all->total_cycle)
 			ft_print_dump(all, all->memory);
 
