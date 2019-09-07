@@ -10,12 +10,65 @@
 /*                                                                            */
 /* ************************************************************************** */
 
+#include <ncurses.h>
 #include "libft.h"
 #include "op.h"
 
 #define TEST111
 #define MAX_CYCLE 1100
 #define DUMP_LENGTH 64
+
+
+#define DELAY 8
+#define DELAY_BOLD 100
+#define BYTE_IN_STRING 64
+#define BATTLEFIELD_Y 2
+#define BATTLEFIELD_X 4
+#define BATTLEFIELD_L (BYTE_IN_STRING * 3)
+#define BATTLEFIELD_H (MEM_SIZE / 64)
+#define INFO_X (BATTLEFIELD_L + 2 * BATTLEFIELD_X + 2)
+#define INFO_Y BATTLEFIELD_Y
+#define INFO_L (40)
+#define INFO_H (BATTLEFIELD_H)
+#define FRAME_H (BATTLEFIELD_H + BATTLEFIELD_Y * 2)
+#define FRAME_L (INFO_X + INFO_L + BATTLEFIELD_X)
+#define CAPYBARA "\
+                                       \n\
+             **         **            \n\
+            *w***      *w* **         \n\
+            **  *****   *****         \n\
+             ww*             ***      \n\
+            *w*  w***          *ww    \n\
+          *w*   *w* ***        *w *   \n\
+        *w*      ***             **   \n\
+      *ww*                         ** \n\
+    *ww*                  *www*  **w**\n\
+  *www*                   *wwwwwwwwwww\n\
+*** **                     ww* *ww**w*\n\
+                            **  *w* * \n\
+                                *w*   \n\
+                                *w  * \n\
+                                *w  * \n\
+                                *w ** \n\
+                        **     *wwww* \n\
+                           *******    \n"
+
+#define SCHOOL_21 "\
+##################      ######\n\
+##################      ######\n\
+##################      ######\n\
+                  ######      ######\n\
+                  ######      ######\n\
+                  ######      ######\n\
+      ############            ######\n\
+      ############            ######\n\
+      ############            ######\n\
+######                        ######\n\
+######                        ######\n\
+######                        ######\n\
+      ##################      ######\n\
+      ##################      ######\n\
+      ##################      ######\n"
 
 #define BYTES_COUNT 20
 char str[100] = {
@@ -202,7 +255,7 @@ int    arg_tab[17][10] =
 
 char    g_errors_tab[10][200] =
 {
-	"No arguments\n",
+	"MANUAL\n",
 	"Can't read file\n",
 	"No players\n",
 	"Repeat of numbers\n",
@@ -213,6 +266,13 @@ char    g_errors_tab[10][200] =
 	"No null-terminator\n",
 };
 
+typedef struct		s_win
+{
+	WINDOW			*frame;
+	WINDOW			*battlefield;
+	WINDOW			*info;
+	WINDOW			*headers;
+}					t_win;
 
 typedef struct		s_play
 {
@@ -228,16 +288,24 @@ typedef struct		s_play
 typedef struct		s_all
 {
 	char			memory[MEM_SIZE];
+	char			code_owner[MEM_SIZE];
+	char			new_code[MEM_SIZE];
+	int				car_station[MEM_SIZE];
 	int				cycle_to_die;
 	int				cycle;
 	int				total_cycle;
 	int				last_live_player;
 	int				players_count;
 	int				cars_count;
+	int				visualisation;
+	int				pause;
+	int				delay;
+	int				flag_aff;
 	int				flag_dumb;
 	int				dumb_cycle;
 	int				nbr_live;
 	int				nbr_check;
+	struct s_win	*wins;
 	struct s_play	*players;
 	struct s_play	*player[MAX_PLAYERS + 2];
 	struct s_car	*cars;
@@ -297,6 +365,7 @@ t_all	*ft_create_all(int players_count)
 		return (NULL);
 	tmp->cycle_to_die = CYCLE_TO_DIE;
 	tmp->players_count = players_count;
+	tmp->delay = DELAY;
 	return (tmp);
 }
 
@@ -436,16 +505,28 @@ int		ft_value_from_memory(char *memory, int pos, int size)
 **	вписываем число на указанное количество байт в память
 */
 
-void	ft_value_in_memory(char *memory, int pos, int value, int size)
+void	ft_value_in_memory(t_car *car, int pos, int value, int size)
 {
 	int i;
+	int mem_pos;
 	char *byte;
+	char *memory;
+	char *cod_owner;
 
 	i = 0;
+	memory = car->all->memory;
+	cod_owner = car->all->code_owner;
 	byte = (char *)(&value);
 	while (i < size)
 	{
-		*(memory + ft_get_pos_of_memory(pos + size - i - 1)) = byte[i];
+		mem_pos = ft_get_pos_of_memory(pos + size - i - 1);
+		*(memory + mem_pos) = byte[i];
+		if (-car->reg[1] > 0 && -car->reg[1] <= MEM_SIZE &&
+		car->all->player[-car->reg[1]])
+		{
+			*(cod_owner + mem_pos) = -car->reg[1];
+			*(car->all->new_code + mem_pos) = DELAY_BOLD;
+		}
 		i++;
 	}
 }
@@ -479,6 +560,7 @@ void	ft_copy_fork(t_car *car, int new_pos)
 	else if (car->action == CMD_LFORK)
 		new_pos = car->pos + new_pos;
 	new->pos = ft_get_pos_of_memory(new_pos);
+	(car->all->car_station[new->pos])++;
 	new->action = READY_TO_ACTION;
 	new->num = car->all->cars_count;
 }
@@ -678,8 +760,8 @@ void	ft_arifm_operations(t_car *car, int **arg)
 		ft_copy_fork(car, *(arg[0]));
 	else if (car->action == CMD_LIVE)
 		ft_live(car, *(arg[0]));
-	else if (car->action == CMD_AFF)
-		;//ft_putchar((char)*(arg[0]));
+	else if (car->action == CMD_AFF && car->all->flag_aff)
+		ft_putchar((char)*(arg[0]));
 	ft_modify_carry(car, arg);
 }
 
@@ -698,14 +780,14 @@ void	ft_st_sti_lldi_ldi_cmd(t_car *car, int **arg)
 			//ft_putnbr_end(*(arg[1]));
 			//ft_putnbr_end(car->pos);
 			adress = car->pos + (*arg[1]) % IDX_MOD;
-			ft_value_in_memory(car->all->memory, adress, *(arg[0]), DIR_SIZE);
+			ft_value_in_memory(car, adress, *(arg[0]), DIR_SIZE);
 		}
 	}
 	else if (car->action == CMD_STI)
 	{
 		adress = car->pos + (*(arg[1]) + *(arg[2])) % IDX_MOD;
 		//ft_putnbr_end(*(arg[1]));
-		ft_value_in_memory(car->all->memory, adress, *(arg[0]), DIR_SIZE);
+		ft_value_in_memory(car, adress, *(arg[0]), DIR_SIZE);
 	}
 	else if (car->action == CMD_LLDI || car->action == CMD_LDI)
 	{
@@ -833,6 +915,7 @@ void	ft_del_car(t_all *all, t_car *car)
 {
 	t_car *tmp;
 
+	(all->car_station[car->pos])--;
 	tmp = all->cars;
 	if (all->cars == car)
 		all->cars = car->next;
@@ -885,12 +968,14 @@ void	ft_cycle(t_all *all)
 {
 	t_car *car;
 
-	car = all->cars;
+
 	(all->cycle)++;
 	(all->total_cycle)++;
 	#ifdef TEST1
 	printf("It is now cycle %d\n", all->total_cycle);
 	#endif
+	ft_bzero((void *)all->car_station, MEM_SIZE * 4);
+	car = all->cars;
 	while (car)
 	{
 		if (car->action == READY_TO_ACTION)
@@ -902,11 +987,19 @@ void	ft_cycle(t_all *all)
 		}
 		else
 			ft_wait_or_do_command(car);
+		(all->car_station[car->pos])++;
 		car = car->next;
 	}
 
 }
 
+
+void	ft_destroy_windows(t_win *wins)
+{
+	delwin(wins->battlefield);
+	delwin(wins->info);
+	endwin();
+}
 
 
 void	ft_error(t_all *all, char *error_msg)
@@ -924,6 +1017,9 @@ void	ft_error(t_all *all, char *error_msg)
 		all->players = all->players->next;
 		free(play);
 	}
+	if (all->wins)
+		ft_destroy_windows(all->wins);
+	free(all->wins);
 	free(all);
 	exit (0);
 }
@@ -1094,11 +1190,15 @@ int		ft_check_flags(t_all *all, char *argv, char *flag)
 	if (!ft_strcmp(flag, "-n") && ft_atoi(argv) > 0 &&
 	ft_atoi(argv) <= MAX_PLAYERS)
 		return (ft_atoi(argv));
-	if (!ft_strcmp(flag, "-dump") && ft_atoi(argv) > 0)
+	else if (!ft_strcmp(flag, "-dump") && ft_atoi(argv) > 0)
 	{
 		all->flag_dumb = 1;
 		all->dumb_cycle = ft_atoi(argv);
 	}
+	else if (!ft_strcmp(flag, "-a"))
+		all->flag_aff = 1;
+	else if (!ft_strcmp(flag, "-vis"))
+		all->visualisation = 1;
 	return (0);
 }
 
@@ -1115,7 +1215,8 @@ int		ft_read_memory2(t_all *all, char **argv, int argc)
 	i = 0;
 	while (i < argc && all->players_count < MAX_PLAYERS)
 	{
-		if (!ft_strcmp(argv[i], "-n") || !ft_strcmp(argv[i], "-dump"))
+		if (!ft_strcmp(argv[i], "-n") || !ft_strcmp(argv[i], "-dump") ||
+		!ft_strcmp(argv[i], "-a") || !ft_strcmp(argv[i], "-vis"))
 			flag = argv[i];
 		else if (flag && !ft_str_not_int_number(argv[i]))
 			number = ft_check_flags(all, argv[i], flag);
@@ -1213,12 +1314,13 @@ void	ft_place_prog_and_cars(t_all *all)
 		if (all->player[i])
 		{
 			p = all->player[i];
-			//car = ft_add_car(i, all);
 			car = ft_create_car(i, all);
 			car->next = all->cars;
 			all->cars = car;
 			car->pos = pos;
+			(all->car_station[pos])++;
 			ft_memcpy((void *)all->memory + pos, (void *)p->programm, p->prog_size);
+			ft_memset((void *)all->code_owner + pos, i, p->prog_size);
 			pos += MEM_SIZE / (all->players_count);
 		}
 		i++;
@@ -1359,6 +1461,208 @@ void	ft_print_dump(t_all *all, char *memory)
 
 
 
+t_win	*ft_create_windows(void)
+{
+	t_win *wins;
+
+	wins = (t_win *)ft_memalloc(sizeof(t_win));
+	if (!wins)
+		return (NULL);
+	wins->frame = newwin(FRAME_H, FRAME_L, 0, 0);
+	wins->battlefield = subwin(wins->frame, BATTLEFIELD_H, BATTLEFIELD_L, BATTLEFIELD_Y, BATTLEFIELD_X);
+	wins->info = subwin(wins->frame, INFO_H, INFO_L, INFO_Y, INFO_X);
+	//wins->battlefield = newwin(BATTLEFIELD_H, BATTLEFIELD_L, BATTLEFIELD_Y, BATTLEFIELD_X);
+	//keypad(wins->battlefield, TRUE);
+	//nodelay(wins->battlefield, TRUE);
+	keypad(wins->frame, TRUE);
+	nodelay(wins->frame, TRUE);
+	return (wins);
+}
+
+
+void	set_color(void)
+{
+	int i;
+	int colour;
+
+	init_pair(MAX_PLAYERS + 1, COLOR_BLACK, COLOR_BLACK);
+	init_pair(MAX_PLAYERS + 2, COLOR_RED, COLOR_BLACK);
+	init_pair(MAX_PLAYERS + 3, COLOR_GREEN, COLOR_BLACK);
+	i = 1;
+	while (i <= MAX_PLAYERS)
+	{
+		colour = 7 - (COLOR_BLACK + i - 1) % 7;
+		init_pair(i, colour, COLOR_BLACK);
+		i++;
+	}
+}
+
+int		ft_init_ncurses(t_all *all)
+{
+	initscr();
+	noecho();
+	curs_set(FALSE);
+
+	if (!(all->wins = ft_create_windows()))
+		return (FAIL);
+	//keypad(all->wins->battlefield, TRUE);
+	//nodelay(all->wins->battlefield, TRUE);
+
+	if (!has_colors())
+	{
+		endwin();
+		printf("Цвета не поддерживаются");
+		exit(1);
+	}
+	start_color();
+	set_color();
+
+	//wbkgd(all->wins->frame, '|' | A_NORMAL | A_REVERSE);
+	//wattroff(all->wins->frame, A_NORMAL | A_REVERSE);
+
+
+
+	return (SUCCESS);
+}
+
+
+
+
+
+void	ft_print_info(t_all *all)
+{
+	WINDOW *win;
+	int i;
+	t_play *player;
+
+	win = all->wins->info;
+	wmove(win, 0, 0);
+	wprintw(win, "Total cycle: %d\n", all->total_cycle);
+	wprintw(win, "Cycle: %d\n", all->cycle);
+	wprintw(win, "Cycle to die: %d\n", all->cycle_to_die);
+	wprintw(win, "Count of process: %d\nWinner: ", all->cars_count);
+	wattron(win, COLOR_PAIR(all->last_live_player));
+	wprintw(win, "%s\n", (all->player[all->last_live_player])->prog_name);
+	wattroff(win, COLOR_PAIR(all->last_live_player));
+	wprintw(win, "\nChampions:\n");
+	i = 1;
+	while (i <= MAX_PLAYERS)
+	{
+		wattron(win, COLOR_PAIR(i));
+		if ((player = all->player[i]))
+			wprintw(win, "%d - %s\n", player->number ,player->prog_name);
+		//wattroff(win, COLOR_PAIR(i));
+		i++;
+	}
+	wattron(win, COLOR_PAIR(MAX_PLAYERS + 2) | A_BOLD);
+	wprintw(win, "\n\n\n%s", CAPYBARA);
+	wattron(win, COLOR_PAIR(MAX_PLAYERS + 3) | A_BOLD);
+	wprintw(win, "\n\n\n%s", SCHOOL_21);
+	wattroff(win, COLOR_PAIR(MAX_PLAYERS + 3) | A_BOLD);
+}
+
+
+
+
+attr_t	ft_get_colour(t_all *all, int pos)
+{
+	attr_t attrs;
+
+	attrs = COLOR_PAIR(MAX_PLAYERS + 1) | A_BOLD;
+	if (all->code_owner[pos])
+		attrs = COLOR_PAIR(all->code_owner[pos]);
+	if (all->car_station[pos])
+	{
+		if (!all->code_owner[pos])
+			attrs = A_NORMAL;
+		attrs = attrs | A_REVERSE;
+	}
+	else if (all->new_code[pos])
+	{
+		all->new_code[pos]--;
+		attrs = attrs | A_BOLD;
+	}
+	return (attrs);
+}
+
+
+void	ft_print_battlefield(t_all *all)
+{
+	WINDOW *win;
+	attr_t attrs;
+	int i;
+
+	win = all->wins->battlefield;
+	wmove(win, 0, 0);
+	//wattrset(win, PAIR_NUMBER(COLOR_PAIR(0)));
+	i = 0;
+	while (i < MEM_SIZE)
+	{
+		attrs = ft_get_colour(all, i);
+		wattron(win, attrs);
+		wprintw(win, "%02hhx", all->memory[i]);
+		wattroff(win, attrs);
+		//wprintw(win, "%d", all->code_owner[i]);
+		wprintw(win, " ");
+		i++;
+	}
+
+}
+
+
+void	ft_print_frame(WINDOW *frame)
+{
+	int i;
+	int j;
+
+	i = 0;
+//	wbkgd(frame, '#' | COLOR_PAIR(MAX_PLAYERS) | A_BOLD);
+	while (i < FRAME_H)
+	{
+		j = 0;
+		while (j < FRAME_L)
+		{
+			if ((j < 1 && i < 1) || (i == FRAME_H - 1 && j == FRAME_L - 1) ||
+			(i == FRAME_H - 1 && j < 1) || (i < 1 && j == FRAME_L - 1))
+				mvwaddch(frame, i, j, 'X' | COLOR_PAIR(MAX_PLAYERS + 1) | A_BOLD);
+			else if (i < 1 || i == FRAME_H - 1)
+				mvwaddch(frame, i, j, 'X' | COLOR_PAIR(MAX_PLAYERS + 1) | A_BOLD);
+			else if (j < 1 || j >= FRAME_L - 1 || j == INFO_X - 4)
+				mvwaddch(frame, i, j, 'X' | COLOR_PAIR(MAX_PLAYERS + 1) | A_BOLD);
+			j++;
+		}
+		i++;
+	}
+}
+
+
+
+void	ft_refresh_windows(t_all *all)
+{
+	t_win *wins;
+	wins = all->wins;
+	int		button;
+
+	//wbkgd(all->wins->frame, ' ' | A_NORMAL | A_REVERSE);
+	ft_print_frame(all->wins->frame);
+	ft_print_info(all);
+	ft_print_battlefield(all);
+	wrefresh(all->wins->frame);
+	button = wgetch(all->wins->frame);
+	if (button == KEY_DOWN && all->delay > 4)
+		all->delay /= 2;
+	if (button == KEY_UP && all->delay < 0x8FFF)
+		all->delay *= 2;
+	if (button == KEY_RIGHT)
+		all->pause = !(all->pause);
+	if (button == KEY_LEFT)
+		ft_error(all, NULL);
+	usleep(all->delay);
+}
+
+
+
+
 int main(int argc, char **argv)
 {
 	t_all *all;
@@ -1378,8 +1682,12 @@ int main(int argc, char **argv)
 
 	ft_place_prog_and_cars(all);
 
+	//all->visualisation = 1;
 
-
+	if (all->visualisation)
+		ft_init_ncurses(all);
+	else
+		ft_print_champ(all);
 /*	int i = 0;
 	printf("_%d_\n", all->players_count);
 	while (i < MAX_PLAYERS + 1)
@@ -1408,18 +1716,25 @@ int main(int argc, char **argv)
 		//all->cars->pos = 0;
 		//all->cars->next->pos = 3;
 
+//		start_color();
+//		init_pair(1, COLOR_GREEN, COLOR_BLACK);
+	//	init_pair(2, COLOR_GREEN, COLOR_YELLOW);
+//		wattron(win, COLOR_PAIR(1));
 
-	//ft_write_new_champ("text2.cor");
-	ft_print_champ(all);
+
 	if (all->flag_dumb && all->dumb_cycle == 0)
 		ft_print_dump(all, all->memory);
 
 	//(all->cycle)++;
 	//(all->total_cycle)++;
 
+
+
 	while (all->cars)
 	{
-		ft_cycle(all);
+		if (!all->pause)
+			ft_cycle(all);
+
 		#ifdef TEST
 		if (all->total_cycle > MAX_CYCLE - 7)
 			ft_print_dump(all, all->memory);
@@ -1435,8 +1750,12 @@ int main(int argc, char **argv)
 			exit(0);
 		#endif
 
+		if (all->visualisation)
+			ft_refresh_windows(all);
+
 	}
-	ft_print_winner(all);
+	if (!all->visualisation)
+		ft_print_winner(all);
 	ft_error(all, NULL);
 	return (0);
 }
