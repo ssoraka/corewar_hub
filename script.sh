@@ -8,8 +8,8 @@ tests=($(ls $path | grep ".cor$"))
 save="/Users/ssoraka/Desktop/days/corewar/material/work/$folder.txt"
 touch $save
 
-##number=(1 20 50 80 150 200 600 800 1400 2400 5000 8000 10000 15000)
-##number=(14000 14200 14400 14600 14800 15000)
+number=(1 20 50 80 150 200 600 800 1400 2400 5000 8000 10000 15000)
+##number=(10000 11200 12400 13600 14800 15000)
 
 for file in "${tests[@]}"
 do
@@ -19,11 +19,12 @@ do
 		echo "_$file"
 
 
-		##for c in ${!number[@]}
-		for (( c=14600; c<=15000; c++ ))
+
+		##for (( c=1; c<=20; c++ ))
+		for c in ${!number[@]}
 		do
-			let num=c*1
-			##num="${number[$c]}"
+			##let num=13550+c*1
+			num="${number[$c]}"
 
 			my=$(./corewar -dump $num $path/$file)
 			notmy=$(./corewar1 -d $num $path/$file)
