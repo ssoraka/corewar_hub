@@ -1,41 +1,67 @@
-#******************************************************************************#
+# **************************************************************************** #
 #                                                                              #
 #                                                         :::      ::::::::    #
 #    Makefile                                           :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
-#    By: ssoraka <marvin@42.fr>                     +#+  +:+       +#+         #
+#    By: ljalikak <marvin@42.fr>                    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2019/03/11 12:49:25 by ssoraka           #+#    #+#              #
-#    Updated: 2019/03/11 20:57:23 by ssoraka          ###   ########.fr        #
+#    Created: 2019/04/04 13:04:11 by ljalikak          #+#    #+#              #
+#    Updated: 2019/04/04 13:04:14 by ljalikak         ###   ########.fr        #
 #                                                                              #
-#******************************************************************************#
+# **************************************************************************** #
 
-NAME1 = main
-NAME2 = checker
-NAME3 = rand_int_gen
-SRC1 = /Users/ssoraka/Desktop/days/Libft/libft/libft.a
-SRC2 = /Users/ssoraka/Desktop/days/Libft/libft/*.o
+CC = gcc
+CFLAGS = -Wall
+## -Wextra -Werror
+NAME = corewar
+LIBSRC = ./libft/
+LIB = $(LIBSRC)libft.a
+HDR = ./includes/
+HDR1 = $(HDR)ft_corewar.h \
+$(HDR)ft_corewar_enum.h \
+$(HDR)ft_corewar_struct.h \
+$(HDR)op.h
 
-all:
-	gcc -o $(NAME1) main.c libft.a
-	@/Users/ssoraka/Desktop/days/Libft/help_mat/clean
-	./$(NAME1)
-	@##./$(NAME1) > command.txt
+SRC = ./sources/
+SRC1 = main.c \
+print.c \
+print_incurses.c \
+create_del_errors.c \
+operations.c \
+arg_for_operations.c \
+create_players.c \
+validations.c \
+windous.c \
+work_with_memory.c \
+incurses_colors.c
 
+OBJS = $(SRC1:.c=.o)
 
+.PHONY: clean all fclean re lib_refresh norm
 
-rand:
-	gcc -o $(NAME3) rand_int_gen.c libft.a
-	@/Users/ssoraka/Desktop/days/Libft/help_mat/clean
-	./$(NAME3) 10 > arr.txt
+all: $(NAME)
+
+$(NAME): $(LIB) $(OBJS)
+	$(CC) $(CFLAGS) -o $(NAME) -lncurses $(LIB) $(OBJS)
+
+$(LIB):
+	@make lib_refresh
+
+%.o: $(SRC)%.c $(HDR1)
+	$(CC) $(CFLAGS) -c $< -I $(HDR) -I $(LIBSRC)
+
+lib_refresh:
+	make -C $(LIBSRC)
 
 norm:
 	norminette -R CheckForbiddenSourceHeader
 
 clean:
-	rm -rf *.o
+	rm -rf $(OBJS)
+	@make -C $(LIBSRC) clean
 
 fclean: clean
-	rm -rf *.o
+	@rm -rf $(NAME)
+	make -C $(LIBSRC) fclean
 
 re: fclean all
