@@ -12,7 +12,7 @@
 
 #include "ft_corewar.h"
 
-char	g_man[8][100] =
+char	g_man[14][100] =
 {
 	"#### EXSAMPLE #########################################################\n",
 	"	./corewar [-a][-dump N][-vis] [[-n number] champion1.cor] ...\n",
@@ -21,10 +21,16 @@ char	g_man[8][100] =
 	"	-dump N   : Dumps memory after N cycles then exits\n",
 	"	-vis      : Ncurses output mode\n",
 	"	-n number : Sets the number of the next player\n",
+	"#### CONTROLS IN NCURSES OUTPUT MODE ##################################\n",
+	"	p         : Pause\n",
+	"	q         : Exit\n",
+	"	+         : Speed up\n",
+	"	-         : Speed down\n",
+	"	Space     : Next step\n",
 	"#######################################################################\n"
 };
 
-void	ft_print_dump(t_all *all, char *memory)
+void	ft_print_dump(t_all *all)
 {
 	int				i;
 	unsigned char	byte;
@@ -41,7 +47,7 @@ void	ft_print_dump(t_all *all, char *memory)
 			ft_print_byte((unsigned int)(unsigned char)num[0]);
 			ft_putstr(" : ");
 		}
-		byte = (unsigned char)(*(memory + i));
+		byte = (unsigned char)(*(all->memory + i));
 		ft_print_byte((unsigned int)byte);
 		if ((i + 1) % DUMP_LENGTH)
 			ft_putchar(' ');
@@ -49,6 +55,7 @@ void	ft_print_dump(t_all *all, char *memory)
 			ft_putstr(" \n");
 		i++;
 	}
+	ft_error_and_del_all(all, NULL);
 }
 
 void	ft_print_byte(unsigned int byte)
@@ -96,6 +103,8 @@ void	ft_print_winner(t_all *all)
 	t_play	*play;
 
 	play = all->player[all->last_live_player];
+	if (all->flag_aff)
+		ft_putchar('\n');
 	ft_putstr("Contestant ");
 	ft_putnbr(play->number);
 	ft_putstr(", \"");
@@ -108,7 +117,7 @@ void	ft_print_manual(void)
 	int i;
 
 	i = 0;
-	while (i < 8)
+	while (i < 14)
 	{
 		ft_putstr(g_man[i]);
 		i++;

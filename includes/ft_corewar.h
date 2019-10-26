@@ -136,7 +136,7 @@ void	ft_place_prog_and_cars(t_all *all);
 
 void	ft_print_champ(t_all *all);
 void	ft_print_winner(t_all *all);
-void	ft_print_dump(t_all *all, char *memory);
+void	ft_print_dump(t_all *all);
 void	ft_print_byte(unsigned int byte);
 void	ft_print_manual(void);
 

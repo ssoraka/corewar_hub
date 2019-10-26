@@ -20,7 +20,7 @@ void	ft_error_and_del_all(t_all *all, char *error_msg)
 	if (error_msg && !ft_strcmp(error_msg, MANUAL))
 		ft_print_manual();
 	else if (error_msg)
-		ft_putstr(error_msg);
+		ft_putstr_fd(error_msg, 2);
 	while (all && all->cars)
 		ft_del_car(all, all->cars);
 	while (all && all->players)

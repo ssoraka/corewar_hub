@@ -60,6 +60,8 @@ void	ft_key_control(t_all *all)
 		all->delay *= 2;
 	if (button == 'p')
 		all->pause = !(all->pause);
+	if (button == ' ')
+		(all->pause)++;
 	if (button == 'q')
 		ft_error_and_del_all(all, NULL);
 }

@@ -23,6 +23,7 @@ void	ft_init_ncurses(t_all *all)
 		ft_error_and_del_all(all, MSG_ERROR2);
 	start_color();
 	set_color();
+	all->pause = 1;
 }
 
 void	set_color(void)

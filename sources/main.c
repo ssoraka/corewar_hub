@@ -164,13 +164,13 @@ int		main(int argc, char **argv)
 	else
 		ft_print_champ(all);
 	if (all->flag_dumb && all->dumb_cycle == 0)
-		ft_print_dump(all, all->memory);
-	while (all->cars || all->pause)
+		ft_print_dump(all);
+	while (all->cars || all->pause > 0)
 	{
-		if (!all->pause)
+		if (!all->pause || (all->pause > 1 && (all->pause)--))
 			ft_cycle(all);
 		if (all->flag_dumb && all->dumb_cycle == all->total_cycle)
-			ft_print_dump(all, all->memory);
+			ft_print_dump(all);
 		if (all->visualisation)
 			ft_refresh_windows(all);
 	}
